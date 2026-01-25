@@ -47,6 +47,14 @@ module.exports = {
             const itemId = interaction.values[0];
             const item = MARKET_ITEMS.find(i => i.id === itemId);
 
+            // Level Check
+            if (item.minLevel > user.level) {
+                return interaction.reply({
+                    content: `Locked. You must be Level ${item.minLevel} to purchase this item. (Current: ${user.level})`,
+                    ephemeral: true
+                });
+            }
+
             // Modal
             const modal = new ModalBuilder()
                 .setCustomId(`market_modal_${itemId}`)
@@ -76,6 +84,10 @@ module.exports = {
             }
 
             // Validation
+            if (item.minLevel > user.level) {
+                return interaction.reply({ content: `Level requirement not met (Level ${item.minLevel}).`, ephemeral: true });
+            }
+
             const bought = user.market_stock[itemId] || 0;
             const remaining = item.maxStock - bought;
             if (quantity > remaining) {
@@ -114,6 +126,9 @@ module.exports = {
             const item = MARKET_ITEMS.find(i => i.id === itemId);
 
             // Re-validate (race condition check)
+            if (item.minLevel > user.level) {
+                return interaction.update({ content: 'Level requirement mismatch. Purchase failed.', embeds: [], components: [] });
+            }
             const bought = user.market_stock[itemId] || 0;
             if ((bought + quantity) > item.maxStock) {
                 return interaction.update({ content: 'Stock changed. Purchase failed.', embeds: [], components: [] });

@@ -21,12 +21,12 @@ module.exports = {
             }
         });
 
-        const rest = new REST({ version: '10' }).setToken(process.env.BOT_TOKEN);
+        const rest = new REST({ version: '10' }).setToken(client.token);
 
         try {
-            logger.info('Started refreshing global application (/) commands.');
+            logger.info(`Started refreshing global application (/) commands for App ID: ${client.user.id}`);
             await rest.put(
-                Routes.applicationCommands(process.env.CLIENT_ID),
+                Routes.applicationCommands(client.user.id),
                 { body: commands },
             );
             logger.success('Successfully reloaded global application (/) commands.');
