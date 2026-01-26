@@ -41,7 +41,14 @@ module.exports = {
         }
         // Handle Components (Buttons, Selects, Modals)
         else if (interaction.isButton() || interaction.isStringSelectMenu() || interaction.isModalSubmit()) {
-            const commandName = interaction.customId.split('_')[0];
+            // Handle both separators: '_' and ':'
+            let commandName = interaction.customId;
+            if (commandName.includes(':')) {
+                commandName = commandName.split(':')[0];
+            } else {
+                commandName = commandName.split('_')[0];
+            }
+
             const command = interaction.client.commands.get(commandName);
 
             if (command && command.handleComponent) {

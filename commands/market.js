@@ -55,6 +55,14 @@ module.exports = {
                 });
             }
 
+            // Balance Check (Pre-check for at least 1 unit)
+            if (user.tokens < item.cost) {
+                return interaction.reply({
+                    content: `Insufficient Funds. You need at least ${item.cost} CI to purchase this item. (Current: ${user.tokens} CI)`,
+                    ephemeral: true
+                });
+            }
+
             // Modal
             const modal = new ModalBuilder()
                 .setCustomId(`market:modal:${itemId}`)
