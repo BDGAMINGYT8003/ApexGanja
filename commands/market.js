@@ -36,7 +36,7 @@ module.exports = {
 
         const row = new ActionRowBuilder().addComponents(select);
 
-        await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
+        await interaction.reply({ embeds: [embed], components: [row] });
     },
 
     async handleComponent(interaction) {
@@ -111,7 +111,7 @@ module.exports = {
             const embed = new EmbedBuilder()
                 .setColor(COLORS.WARNING)
                 .setTitle('Confirm Purchase')
-                .setDescription(`Item: **${item.name}**\nQuantity: **${quantity}**\nTotal Cost: **${totalCost} CI**`);
+                .setDescription(`Are you sure you want to buy **${quantity}x ${item.name}** for **${totalCost} CI**?`);
 
             const row = new ActionRowBuilder().addComponents(
                 new ButtonBuilder()
@@ -124,10 +124,7 @@ module.exports = {
                     .setStyle(ButtonStyle.Secondary)
             );
 
-            // Modal Submissions are inherently ephemeral if the trigger was?
-            // Actually, we are Replying to the Modal Submit interaction.
-            // We can make this Ephemeral.
-            await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
+            await interaction.update({ embeds: [embed], components: [row] });
         }
 
         // 3. Confirm Button
@@ -169,7 +166,15 @@ module.exports = {
 
             const codeString = codes.map(c => `\`${c}\``).join('\n');
 
-            // DM User
+            // Success Embed (Public Update)
+            const successEmbed = new EmbedBuilder()
+                .setColor(COLORS.SUCCESS)
+                .setTitle('Purchase Successful')
+                .setDescription(`You purchased **${quantity}x ${item.name}**.\n\nCheck your DMs for your redemption codes.`);
+
+            await interaction.update({ embeds: [successEmbed], components: [] });
+
+            // DM User + Safe-Drop Fallback
             try {
                 const dmEmbed = new EmbedBuilder()
                     .setColor(COLORS.SUCCESS)
@@ -177,21 +182,24 @@ module.exports = {
                     .setDescription(`You purchased **${quantity}x ${item.name}**.\n\n**Redemption Codes:**\n${codeString}`);
                 await interaction.user.send({ embeds: [dmEmbed] });
             } catch (err) {
-                // DM failed
+                // Safe-Drop: Ephemeral Follow-up
+                const safeDropEmbed = new EmbedBuilder()
+                    .setColor(COLORS.WARNING)
+                    .setTitle('DM Delivery Failed')
+                    .setDescription(`Your privacy settings prevented DM delivery.\n\n**Here are your codes (Visible only to you):**\n${codeString}\n\n*Please copy these now.*`);
+
+                await interaction.followUp({ embeds: [safeDropEmbed], ephemeral: true });
             }
-
-            // Ephemeral Reply
-            const successEmbed = new EmbedBuilder()
-                .setColor(COLORS.SUCCESS)
-                .setTitle('Purchase Successful')
-                .setDescription(`You purchased **${quantity}x ${item.name}**.\n\n**Redemption Codes:**\n${codeString}\n\n*Please copy these codes immediately. They have also been sent to your DMs.*`);
-
-            await interaction.update({ embeds: [successEmbed], components: [] });
         }
 
         // 4. Cancel Button
         else if (interaction.isButton() && interaction.customId === 'market:cancel') {
-            await interaction.update({ content: 'Purchase cancelled.', embeds: [], components: [] });
+            const cancelEmbed = new EmbedBuilder()
+                .setColor(COLORS.ERROR)
+                .setTitle('Transaction Cancelled')
+                .setDescription('The purchase was cancelled.');
+
+            await interaction.update({ embeds: [cancelEmbed], components: [] });
         }
     }
 };
