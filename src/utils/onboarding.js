@@ -6,7 +6,8 @@ const STEPS = {
     START: 0,
     CURRENCY: 1,
     MARKET: 2,
-    COMPLETE: 3
+    LOTTERY: 3,
+    COMPLETE: 4
 };
 
 async function handle(interaction) {
@@ -37,6 +38,9 @@ async function handle(interaction) {
             break;
         case STEPS.MARKET:
             await sendMarketInfo(interaction);
+            break;
+        case STEPS.LOTTERY:
+            await sendLotteryInfo(interaction);
             break;
         case STEPS.COMPLETE:
             await completeOnboarding(interaction);
@@ -73,7 +77,7 @@ async function sendCurrencyInfo(interaction) {
             { name: 'Server XP', value: 'Earned by chatting. Resets monthly. Determines your Rank.', inline: true },
             { name: 'CI Tokens', value: 'Earned by leveling up. Capped at 1400/month. Used in the Market.', inline: true }
         )
-        .setFooter({ text: 'Step 1 of 3' });
+        .setFooter({ text: 'Step 1 of 4' });
 
     const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
@@ -90,11 +94,28 @@ async function sendMarketInfo(interaction) {
         .setColor(COLORS.PRIMARY)
         .setTitle('The Apex Market & Monthly Reset')
         .setDescription('**Monthly Reset:** On the 1st of every month, XP, Levels, and Tokens reset. Use them or lose them!\n\n**The Market:** Spend CI Tokens on items. Each item has a limited stock per user that also resets monthly.')
-        .setFooter({ text: 'Step 2 of 3' });
+        .setFooter({ text: 'Step 2 of 4' });
 
     const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
             .setCustomId('onboard_step_3')
+            .setLabel('Next: The Lottery')
+            .setStyle(ButtonStyle.Primary)
+    );
+
+    await interaction.update({ embeds: [embed], components: [row] });
+}
+
+async function sendLotteryInfo(interaction) {
+    const embed = new EmbedBuilder()
+        .setColor(COLORS.PRIMARY)
+        .setTitle('The Monthly Lottery')
+        .setDescription('Participate in the monthly lottery to win exclusive prizes!\n\n- Buy tickets in the Market.\n- 3 Winners are picked randomly at the end of the month.\n- Purchases are locked 24h before/after the reset.')
+        .setFooter({ text: 'Step 3 of 4' });
+
+    const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+            .setCustomId('onboard_step_4')
             .setLabel('Complete Setup')
             .setStyle(ButtonStyle.Success)
     );

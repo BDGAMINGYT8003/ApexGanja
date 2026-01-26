@@ -14,6 +14,9 @@ module.exports = {
         const result = xpSystem.processMessage(message.guild.id, message.author.id, message.content);
 
         if (result && result.newLevel) {
+            const nextXp = xpSystem.getXpForNextLevel(result.newLevel);
+            const progressBar = getProgressBar(result.currentXp, nextXp, 5);
+
             const timestamp = new Date().toLocaleString('en-US', {
                 year: 'numeric', month: 'numeric', day: 'numeric',
                 hour: '2-digit', minute: '2-digit', hour12: false
@@ -24,7 +27,8 @@ module.exports = {
                 .setTitle('Level up!')
                 .setDescription(`> Level up hype, ${message.author.username}! You leveled up from level **${result.oldLevel}** to **${result.newLevel}**`)
                 .addFields(
-                    { name: 'Rewards', value: `- +${result.tokensAwarded} Calamity Intel (CI) Tokens`, inline: true }
+                    { name: 'Rewards', value: `- +${result.tokensAwarded} Calamity Intel (CI) Tokens`, inline: true },
+                    { name: 'Progress', value: `${progressBar} (${result.currentXp}/${nextXp} XP)`, inline: false }
                 )
                 .setFooter({ text: timestamp });
 
@@ -37,7 +41,8 @@ module.exports = {
                     .setTitle('Level up!')
                     .setDescription(`> Level up hype, ${message.author.username}! You leveled up from level **${result.oldLevel}** to **${result.newLevel}**\n\n*I couldn't DM you because your privacy settings are locked. Unlock them so I don't have to roast you in public next time.*`)
                     .addFields(
-                        { name: 'Rewards', value: `- +${result.tokensAwarded} Calamity Intel (CI) Tokens`, inline: true }
+                        { name: 'Rewards', value: `- +${result.tokensAwarded} Calamity Intel (CI) Tokens`, inline: true },
+                        { name: 'Progress', value: `${progressBar} (${result.currentXp}/${nextXp} XP)`, inline: false }
                     )
                     .setFooter({ text: timestamp });
 

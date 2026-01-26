@@ -61,6 +61,12 @@ function createUser(guildId, userId) {
         level: 1,
         tokens: 0,
         market_stock: {}, // itemId: count_bought
+        lottery: {
+            current_tickets: 0,
+            lifetime_tickets: 0,
+            wins: { first: 0, second: 0, third: 0 },
+            joined: 0
+        },
         last_message_content: null, // For entropy check
         onboarded: true,
         joinedAt: Date.now()

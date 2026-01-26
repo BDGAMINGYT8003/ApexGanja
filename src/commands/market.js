@@ -25,11 +25,13 @@ module.exports = {
             // Check stock
             const bought = user.market_stock[item.id] || 0;
             const remaining = item.maxStock - bought;
+            const isLottery = item.id === 'lottery_ticket';
+            const stockDisplay = isLottery ? 'Stock: ∞' : `Stock: ${remaining}/${item.maxStock}`;
 
             select.addOptions(
                 new StringSelectMenuOptionBuilder()
                     .setLabel(item.name)
-                    .setDescription(`Cost: ${item.cost} CI | Stock: ${remaining}/${item.maxStock}`)
+                    .setDescription(`Cost: ${item.cost} CI | ${stockDisplay}`)
                     .setValue(item.id)
             );
         });
@@ -63,16 +65,34 @@ module.exports = {
                 });
             }
 
+            // Lockout Logic for Lottery
+            if (item.id === 'lottery_ticket') {
+                const now = new Date();
+                const day = now.getUTCDate();
+                const lastDay = new Date(now.getUTCFullYear(), now.getUTCMonth() + 1, 0).getUTCDate();
+
+                // Block if Day 1 (Reset day) OR Last Day of Month (24h before reset)
+                if (day === 1 || day === lastDay) {
+                    return interaction.reply({
+                        content: `Lottery Ticket purchases are locked 24h before and after the monthly reset.`,
+                        ephemeral: true
+                    });
+                }
+            }
+
             // Modal
             const modal = new ModalBuilder()
                 .setCustomId(`market:modal:${itemId}`)
                 .setTitle(`Purchase ${item.name.substring(0, 30)}`); // Trim title
 
+            const isLottery = item.id === 'lottery_ticket';
+            const maxStock = isLottery ? 9999 : (item.maxStock - (user.market_stock[itemId] || 0));
+
             const quantityInput = new TextInputBuilder()
                 .setCustomId('quantity')
                 .setLabel('Quantity')
                 .setStyle(TextInputStyle.Short)
-                .setPlaceholder(`Max: ${item.maxStock - (user.market_stock[itemId] || 0)}`)
+                .setPlaceholder(`Max: ${isLottery ? 'Unlimited' : maxStock}`)
                 .setRequired(true);
 
             const row = new ActionRowBuilder().addComponents(quantityInput);
@@ -96,10 +116,13 @@ module.exports = {
                 return interaction.reply({ content: `Level requirement not met (Level ${item.minLevel}).`, ephemeral: true });
             }
 
-            const bought = user.market_stock[itemId] || 0;
-            const remaining = item.maxStock - bought;
-            if (quantity > remaining) {
-                return interaction.reply({ content: `Insufficient stock. You only have ${remaining} left.`, ephemeral: true });
+            const isLottery = item.id === 'lottery_ticket';
+            if (!isLottery) {
+                const bought = user.market_stock[itemId] || 0;
+                const remaining = item.maxStock - bought;
+                if (quantity > remaining) {
+                    return interaction.reply({ content: `Insufficient stock. You only have ${remaining} left.`, ephemeral: true });
+                }
             }
 
             const totalCost = item.cost * quantity;
@@ -137,8 +160,10 @@ module.exports = {
             if (item.minLevel > user.level) {
                 return interaction.update({ content: 'Level requirement mismatch. Purchase failed.', embeds: [], components: [] });
             }
+            const isLottery = item.id === 'lottery_ticket';
             const bought = user.market_stock[itemId] || 0;
-            if ((bought + quantity) > item.maxStock) {
+
+            if (!isLottery && (bought + quantity) > item.maxStock) {
                 return interaction.update({ content: 'Stock changed. Purchase failed.', embeds: [], components: [] });
             }
             const totalCost = item.cost * quantity;
@@ -147,16 +172,23 @@ module.exports = {
             }
 
             // Execute
-            const newStock = bought + quantity;
             const newBalance = user.tokens - totalCost;
+            let updateData = { tokens: newBalance };
 
-            const stockMap = { ...user.market_stock };
-            stockMap[itemId] = newStock;
+            if (isLottery) {
+                // Update Lottery Stats
+                const lottery = user.lottery || { current_tickets: 0, lifetime_tickets: 0, wins: { first: 0, second: 0, third: 0 }, joined: 0 };
+                lottery.current_tickets += quantity;
+                lottery.lifetime_tickets += quantity;
+                updateData.lottery = lottery;
+            } else {
+                const newStock = bought + quantity;
+                const stockMap = { ...user.market_stock };
+                stockMap[itemId] = newStock;
+                updateData.market_stock = stockMap;
+            }
 
-            db.updateUser(interaction.guildId, interaction.user.id, {
-                tokens: newBalance,
-                market_stock: stockMap
-            });
+            db.updateUser(interaction.guildId, interaction.user.id, updateData);
 
             // Generate Codes
             const codes = [];

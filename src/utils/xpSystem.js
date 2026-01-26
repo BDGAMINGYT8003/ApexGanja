@@ -99,6 +99,7 @@ function processMessage(guildId, userId, content) {
 
     return {
         xpGained,
+        currentXp,
         oldLevel: leveledUp ? oldLevel : null,
         newLevel: leveledUp ? currentLevel : null,
         tokensAwarded
