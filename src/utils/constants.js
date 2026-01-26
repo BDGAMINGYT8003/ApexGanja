@@ -20,14 +20,10 @@ module.exports = {
         { id: 'lottery_ticket', name: 'Lottery Ticket', cost: 150, maxStock: 9999, minLevel: 21 }
     ],
     LEVEL_CONSTANTS: {
-        BASE: 75,
-        QUADRATIC: 15,
-        MAX_LEVEL_SOFT: 30
+        BASE: 100,
+        INCREMENT: 1
     },
     TOKEN_REWARDS: {
-        TIER_1: { min: 2, max: 10, amount: 20 },
-        TIER_2: { min: 11, max: 20, amount: 45 },
-        TIER_3: { min: 21, max: 30, amount: 77 },
-        TIER_4: { min: 31, amount: 0 }
+        BASE: 10
     }
 };

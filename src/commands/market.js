@@ -65,6 +65,17 @@ module.exports = {
                 });
             }
 
+            // Stock Check (Pre-check)
+            if (item.id !== 'lottery_ticket') {
+                const bought = user.market_stock[item.id] || 0;
+                if (bought >= item.maxStock) {
+                    return interaction.reply({
+                        content: `Out of Stock. You have purchased the maximum amount (${item.maxStock}) for this month.`,
+                        ephemeral: true
+                    });
+                }
+            }
+
             // Lockout Logic for Lottery
             if (item.id === 'lottery_ticket') {
                 const now = new Date();
@@ -82,7 +93,7 @@ module.exports = {
 
             // Modal
             const modal = new ModalBuilder()
-                .setCustomId(`market:modal:${itemId}`)
+                .setCustomId(`market:modal:${itemId}:${interaction.message.id}`)
                 .setTitle(`Purchase ${item.name.substring(0, 30)}`); // Trim title
 
             const isLottery = item.id === 'lottery_ticket';
@@ -103,7 +114,9 @@ module.exports = {
 
         // 2. Modal Submit
         else if (interaction.isModalSubmit() && interaction.customId.startsWith('market:modal:')) {
-            const itemId = interaction.customId.split(':')[2];
+            const parts = interaction.customId.split(':');
+            const itemId = parts[2];
+            const originalMsgId = parts[3];
             const item = MARKET_ITEMS.find(i => i.id === itemId);
             const quantity = parseInt(interaction.fields.getTextInputValue('quantity'));
 
@@ -134,11 +147,11 @@ module.exports = {
             const embed = new EmbedBuilder()
                 .setColor(COLORS.WARNING)
                 .setTitle('Confirm Purchase')
-                .setDescription(`Are you sure you want to buy **${quantity}x ${item.name}** for **${totalCost} CI**?`);
+                .setDescription(`Are you sure you want to buy **${quantity}x ${item.name.replace(/ x\d+$/, '')}** for **${totalCost} CI**?`);
 
             const row = new ActionRowBuilder().addComponents(
                 new ButtonBuilder()
-                    .setCustomId(`market:confirm:${itemId}:${quantity}`)
+                    .setCustomId(`market:confirm:${itemId}:${quantity}:${originalMsgId}`)
                     .setLabel('Confirm')
                     .setStyle(ButtonStyle.Success),
                 new ButtonBuilder()
@@ -147,12 +160,15 @@ module.exports = {
                     .setStyle(ButtonStyle.Secondary)
             );
 
-            await interaction.update({ embeds: [embed], components: [row] });
+            await interaction.reply({ embeds: [embed], components: [row] });
         }
 
         // 3. Confirm Button
         else if (interaction.isButton() && interaction.customId.startsWith('market:confirm:')) {
-            const [_, __, itemId, qtyStr] = interaction.customId.split(':');
+            const parts = interaction.customId.split(':');
+            const itemId = parts[2];
+            const qtyStr = parts[3];
+            const originalMsgId = parts[4];
             const quantity = parseInt(qtyStr);
             const item = MARKET_ITEMS.find(i => i.id === itemId);
 
@@ -199,28 +215,75 @@ module.exports = {
             const codeString = codes.map(c => `\`${c}\``).join('\n');
 
             // Success Embed (Public Update)
+            let successDescription = '';
+            if (isLottery) {
+                successDescription = `You purchased **${quantity}x Lottery Ticket**. Use the \`/lottery\` command to check your entries and progress!`;
+            } else {
+                successDescription = `You purchased **${quantity}x ${item.name.replace(/ x\d+$/, '')}**.\n\nCheck your DMs for your redemption codes.`;
+            }
+
             const successEmbed = new EmbedBuilder()
                 .setColor(COLORS.SUCCESS)
                 .setTitle('Purchase Successful')
-                .setDescription(`You purchased **${quantity}x ${item.name}**.\n\nCheck your DMs for your redemption codes.`);
+                .setDescription(successDescription);
 
             await interaction.update({ embeds: [successEmbed], components: [] });
 
-            // DM User + Safe-Drop Fallback
-            try {
-                const dmEmbed = new EmbedBuilder()
-                    .setColor(COLORS.SUCCESS)
-                    .setTitle('Purchase Successful')
-                    .setDescription(`You purchased **${quantity}x ${item.name}**.\n\n**Redemption Codes:**\n${codeString}`);
-                await interaction.user.send({ embeds: [dmEmbed] });
-            } catch (err) {
-                // Safe-Drop: Ephemeral Follow-up
-                const safeDropEmbed = new EmbedBuilder()
-                    .setColor(COLORS.WARNING)
-                    .setTitle('DM Delivery Failed')
-                    .setDescription(`Your privacy settings prevented DM delivery.\n\n**Here are your codes (Visible only to you):**\n${codeString}\n\n*Please copy these now.*`);
+            // DM User + Safe-Drop Fallback (Only for non-Lottery items)
+            if (!isLottery) {
+                try {
+                    const dmEmbed = new EmbedBuilder()
+                        .setColor(COLORS.SUCCESS)
+                        .setTitle('Purchase Successful')
+                        .setDescription(`You purchased **${quantity}x ${item.name.replace(/ x\d+$/, '')}**.\n\n**Redemption Codes:**\n${codeString}`);
+                    await interaction.user.send({ embeds: [dmEmbed] });
+                } catch (err) {
+                    // Safe-Drop: Ephemeral Follow-up
+                    const safeDropEmbed = new EmbedBuilder()
+                        .setColor(COLORS.WARNING)
+                        .setTitle('DM Delivery Failed')
+                        .setDescription(`Your privacy settings prevented DM delivery.\n\n**Here are your codes (Visible only to you):**\n${codeString}\n\n*Please copy these now.*`);
 
-                await interaction.followUp({ embeds: [safeDropEmbed], ephemeral: true });
+                    await interaction.followUp({ embeds: [safeDropEmbed], ephemeral: true });
+                }
+            }
+
+            // Update Original Menu (Dynamic Sync)
+            if (originalMsgId) {
+                try {
+                    const originalMsg = await interaction.channel.messages.fetch(originalMsgId);
+                    if (originalMsg && originalMsg.editable) {
+                        const updatedUser = db.getUser(interaction.guildId, interaction.user.id);
+                        // Re-render Select Menu
+                        const select = new StringSelectMenuBuilder()
+                            .setCustomId('market_select')
+                            .setPlaceholder('Select an item...');
+
+                        MARKET_ITEMS.forEach(i => {
+                            const bought = updatedUser.market_stock[i.id] || 0;
+                            const remaining = i.maxStock - bought;
+                            const isLot = i.id === 'lottery_ticket';
+                            const stockDisplay = isLot ? 'Stock: ∞' : `Stock: ${remaining}/${i.maxStock}`;
+
+                            select.addOptions(
+                                new StringSelectMenuOptionBuilder()
+                                    .setLabel(i.name)
+                                    .setDescription(`Cost: ${i.cost} CI | ${stockDisplay}`)
+                                    .setValue(i.id)
+                            );
+                        });
+
+                        const row = new ActionRowBuilder().addComponents(select);
+                        const embed = new EmbedBuilder()
+                            .setColor(COLORS.PRIMARY)
+                            .setTitle('Apex Market Store')
+                            .setDescription(`**Your Balance:** ${updatedUser.tokens} CI Tokens\n\nSelect an item below to purchase.`);
+
+                        await originalMsg.edit({ embeds: [embed], components: [row] });
+                    }
+                } catch (err) {
+                    // Ignore if message deleted or fetch failed
+                }
             }
         }
 

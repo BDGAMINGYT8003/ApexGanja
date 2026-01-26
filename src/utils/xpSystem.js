@@ -7,31 +7,25 @@ const cooldowns = new Map();
 
 /**
  * Calculates XP required for the NEXT level.
- * Formula: (75 * CurrentLevel) + (15 * (CurrentLevel^2))
+ * Formula: 100 + (CurrentLevel - 1)
  * @param {number} currentLevel
  * @returns {number} XP cost
  */
 function getXpForNextLevel(currentLevel) {
-    return (LEVEL_CONSTANTS.BASE * currentLevel) + (LEVEL_CONSTANTS.QUADRATIC * Math.pow(currentLevel, 2));
+    return LEVEL_CONSTANTS.BASE + (currentLevel - 1);
 }
 
 /**
  * Calculates CI Tokens awarded for reaching a specific level.
+ * Formula: 10 + (NewLevel - 2)
  * @param {number} level The level JUST reached.
  * @returns {number} Tokens to award.
  */
 function getTokenReward(level) {
-    if (level >= TOKEN_REWARDS.TIER_1.min && level <= TOKEN_REWARDS.TIER_1.max) {
-        return TOKEN_REWARDS.TIER_1.amount;
-    }
-    if (level >= TOKEN_REWARDS.TIER_2.min && level <= TOKEN_REWARDS.TIER_2.max) {
-        return TOKEN_REWARDS.TIER_2.amount;
-    }
-    if (level >= TOKEN_REWARDS.TIER_3.min && level <= TOKEN_REWARDS.TIER_3.max) {
-        return TOKEN_REWARDS.TIER_3.amount;
-    }
-    // Level 31+
-    return TOKEN_REWARDS.TIER_4.amount;
+    // Level 2 (First level up) = 10 CI
+    // Level 3 = 11 CI
+    // Formula: 10 + (level - 2)
+    return TOKEN_REWARDS.BASE + (level - 2);
 }
 
 /**
@@ -56,7 +50,7 @@ function processMessage(guildId, userId, content) {
     const lastXpTime = cooldowns.get(userId) || 0;
     if (now - lastXpTime < 60000) return null;
 
-    // --- AWARD XP ---
+    // --- AWARD XP & TOKEN ---
     const xpGained = Math.floor(Math.random() * (5 - 2 + 1)) + 2; // Random 2-5
 
     // Update Cooldown
@@ -67,7 +61,7 @@ function processMessage(guildId, userId, content) {
     const oldLevel = currentLevel;
     let currentXp = (user.xp || 0) + xpGained;
     let totalXp = (user.total_xp || 0) + xpGained;
-    let tokens = user.tokens || 0;
+    let tokens = (user.tokens || 0) + 1; // +1 CI Token per valid message
     let leveledUp = false;
     let tokensAwarded = 0;
 
