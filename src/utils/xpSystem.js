@@ -64,6 +64,7 @@ function processMessage(guildId, userId, content) {
 
     // Calculate Leveling
     let currentLevel = user.level || 1;
+    const oldLevel = currentLevel;
     let currentXp = (user.xp || 0) + xpGained;
     let totalXp = (user.total_xp || 0) + xpGained;
     let tokens = user.tokens || 0;
@@ -98,6 +99,7 @@ function processMessage(guildId, userId, content) {
 
     return {
         xpGained,
+        oldLevel: leveledUp ? oldLevel : null,
         newLevel: leveledUp ? currentLevel : null,
         tokensAwarded
     };
