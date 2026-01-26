@@ -57,7 +57,7 @@ module.exports = {
 
             // Modal
             const modal = new ModalBuilder()
-                .setCustomId(`market_modal_${itemId}`)
+                .setCustomId(`market:modal:${itemId}`)
                 .setTitle(`Purchase ${item.name.substring(0, 30)}`); // Trim title
 
             const quantityInput = new TextInputBuilder()
@@ -74,8 +74,8 @@ module.exports = {
         }
 
         // 2. Modal Submit
-        else if (interaction.isModalSubmit() && interaction.customId.startsWith('market_modal_')) {
-            const itemId = interaction.customId.split('_')[2];
+        else if (interaction.isModalSubmit() && interaction.customId.startsWith('market:modal:')) {
+            const itemId = interaction.customId.split(':')[2];
             const item = MARKET_ITEMS.find(i => i.id === itemId);
             const quantity = parseInt(interaction.fields.getTextInputValue('quantity'));
 
@@ -107,21 +107,24 @@ module.exports = {
 
             const row = new ActionRowBuilder().addComponents(
                 new ButtonBuilder()
-                    .setCustomId(`market_confirm_${itemId}_${quantity}`)
+                    .setCustomId(`market:confirm:${itemId}:${quantity}`)
                     .setLabel('Confirm')
                     .setStyle(ButtonStyle.Success),
                 new ButtonBuilder()
-                    .setCustomId('market_cancel')
+                    .setCustomId('market:cancel')
                     .setLabel('Cancel')
                     .setStyle(ButtonStyle.Secondary)
             );
 
+            // Modal Submissions are inherently ephemeral if the trigger was?
+            // Actually, we are Replying to the Modal Submit interaction.
+            // We can make this Ephemeral.
             await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
         }
 
         // 3. Confirm Button
-        else if (interaction.isButton() && interaction.customId.startsWith('market_confirm_')) {
-            const [_, __, itemId, qtyStr] = interaction.customId.split('_');
+        else if (interaction.isButton() && interaction.customId.startsWith('market:confirm:')) {
+            const [_, __, itemId, qtyStr] = interaction.customId.split(':');
             const quantity = parseInt(qtyStr);
             const item = MARKET_ITEMS.find(i => i.id === itemId);
 
@@ -179,7 +182,7 @@ module.exports = {
         }
 
         // 4. Cancel Button
-        else if (interaction.isButton() && interaction.customId === 'market_cancel') {
+        else if (interaction.isButton() && interaction.customId === 'market:cancel') {
             await interaction.update({ content: 'Purchase cancelled.', embeds: [], components: [] });
         }
     }
