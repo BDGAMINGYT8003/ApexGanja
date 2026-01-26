@@ -29,12 +29,15 @@ module.exports = {
             .setColor(COLORS.PRIMARY)
             .setTitle(`Agent Profile: ${targetUser.username}`)
             .setThumbnail(targetUser.displayAvatarURL())
-            .addFields(
-                { name: 'Level', value: `${user.level}`, inline: true },
-                { name: 'Rank', value: `#${rank}`, inline: true },
-                { name: 'CI Tokens', value: `${user.tokens}`, inline: true },
-                { name: 'Progress', value: `${progressBar} ${user.xp}/${nextXp} XP`, inline: false },
-                { name: 'Total Server XP', value: `${user.total_xp}`, inline: false }
+            .setDescription(
+                `**Level**\n\n` +
+                `Level: ${user.level}\n` +
+                `Experience: ${user.xp}/${nextXp}\n` +
+                `${progressBar}\n\n` +
+                `**Calamity Intel (CI) Tokens**\n` +
+                `${user.tokens}\n\n` +
+                `**Rank**\n` +
+                `#${rank}`
             );
 
         await interaction.reply({ embeds: [embed] });

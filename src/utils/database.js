@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const logger = require('./logger');
 
-const DB_PATH = path.join(__dirname, '../data/users.json');
+const DB_PATH = path.join(__dirname, '../../data/users.json');
 let cache = {};
 let saveInterval = null;
 
