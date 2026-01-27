@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
 const db = require('../utils/database');
 const xpSystem = require('../utils/xpSystem');
 const { getProgressBar } = require('../utils/progressBar');
@@ -7,8 +7,8 @@ const { COLORS } = require('../utils/constants');
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('profile')
-        .setDescription('View your Apex Grid stats.')
-        .addUserOption(option => option.setName('user').setDescription('The user to view')),
+        .setDescription('View your Apex Grid status.')
+        .addUserOption(option => option.setName('user').setDescription('The operator to view')),
     async execute(interaction) {
         const targetUser = interaction.options.getUser('user') || interaction.user;
         let user = db.getUser(interaction.guildId, targetUser.id);
@@ -17,9 +17,9 @@ module.exports = {
             // Check Incomplete
             const incompleteUser = db.getIncompleteUser(interaction.guildId, targetUser.id);
             if (incompleteUser) {
-                return interaction.reply({ content: 'This user exists in the database but has not onboarded yet.', ephemeral: true });
+                return interaction.reply({ content: 'Operator signature detected, but authorization is pending (not onboarded).', flags: MessageFlags.Ephemeral });
             }
-            return interaction.reply({ content: 'User not found in the database.', ephemeral: true });
+            return interaction.reply({ content: 'Operator signature not found in the grid.', flags: MessageFlags.Ephemeral });
         }
 
         const nextXp = xpSystem.getXpForNextLevel(user.level);
@@ -32,12 +32,12 @@ module.exports = {
 
         const embed = new EmbedBuilder()
             .setColor(COLORS.PRIMARY)
-            .setTitle(`Agent Profile: ${targetUser.username}`)
+            .setTitle(`Operator Dossier: ${targetUser.username}`)
             .setThumbnail(targetUser.displayAvatarURL())
             .addFields(
-                { name: 'Level', value: `Level: ${user.level}\nExperience: ${user.xp}/${nextXp}\n${progressBar}`, inline: false },
-                { name: 'CI Tokens', value: `${user.tokens}`, inline: true },
-                { name: 'Rank', value: `#${rank}`, inline: true }
+                { name: 'Clearance', value: `Level: ${user.level}\nXP Protocol: ${user.xp}/${nextXp}\n${progressBar}`, inline: false },
+                { name: 'Calamity Intel', value: `${user.tokens} CI`, inline: true },
+                { name: 'Sector Rank', value: `#${rank}`, inline: true }
             );
 
         await interaction.reply({ embeds: [embed] });

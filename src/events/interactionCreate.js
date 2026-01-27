@@ -1,3 +1,4 @@
+const { MessageFlags } = require('discord.js');
 const db = require('../utils/database');
 const onboarding = require('../utils/onboarding');
 
@@ -33,9 +34,9 @@ module.exports = {
             } catch (error) {
                 console.error(error);
                 if (interaction.replied || interaction.deferred) {
-                    await interaction.followUp({ content: 'There was an error executing this command!', ephemeral: true });
+                    await interaction.followUp({ content: 'There was an error executing this command!', flags: MessageFlags.Ephemeral });
                 } else {
-                    await interaction.reply({ content: 'There was an error executing this command!', ephemeral: true });
+                    await interaction.reply({ content: 'There was an error executing this command!', flags: MessageFlags.Ephemeral });
                 }
             }
         }
@@ -58,7 +59,7 @@ module.exports = {
                     console.error(error);
                     // Silent fail or ephemeral error
                     if (!interaction.replied) {
-                        await interaction.reply({ content: 'Error processing component.', ephemeral: true });
+                        await interaction.reply({ content: 'Error processing component.', flags: MessageFlags.Ephemeral });
                     }
                 }
             }

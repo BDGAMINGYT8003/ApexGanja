@@ -1,25 +1,25 @@
-const { SlashCommandBuilder, EmbedBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ActionRowBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ButtonBuilder, ButtonStyle, MessageFlags } = require('discord.js');
 const db = require('../utils/database');
 const { COLORS, MARKET_ITEMS } = require('../utils/constants');
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('market')
-        .setDescription('Open the Apex Market.'),
+        .setDescription('Access the Supply Depot.'),
 
     async execute(interaction) {
         const user = db.getUser(interaction.guildId, interaction.user.id);
-        if (!user) return interaction.reply({ content: 'Profile not found.', ephemeral: true });
+        if (!user) return interaction.reply({ content: 'Operator Dossier not found.', flags: MessageFlags.Ephemeral });
 
         const embed = new EmbedBuilder()
             .setColor(COLORS.PRIMARY)
-            .setTitle('Apex Market Store')
-            .setDescription(`**Your Balance:** ${user.tokens} CI Tokens\n\nSelect an item below to purchase.`);
+            .setTitle('Supply Depot')
+            .setDescription(`**Available Resources:** ${user.tokens} Calamity Intel (CI)\n\nSelect an acquisition below.`);
 
         // Create Select Menu
         const select = new StringSelectMenuBuilder()
             .setCustomId('market_select')
-            .setPlaceholder('Select an item...');
+            .setPlaceholder('Select Acquisition...');
 
         MARKET_ITEMS.forEach(item => {
             // Check stock
@@ -52,16 +52,16 @@ module.exports = {
             // Level Check
             if (item.minLevel > user.level) {
                 return interaction.reply({
-                    content: `Locked. You must be Level ${item.minLevel} to purchase this item. (Current: ${user.level})`,
-                    ephemeral: true
+                    content: `Clearance Insufficient. Level ${item.minLevel} required. (Current: ${user.level})`,
+                    flags: MessageFlags.Ephemeral
                 });
             }
 
             // Balance Check (Pre-check for at least 1 unit)
             if (user.tokens < item.cost) {
                 return interaction.reply({
-                    content: `Insufficient Funds. You need at least ${item.cost} CI to purchase this item. (Current: ${user.tokens} CI)`,
-                    ephemeral: true
+                    content: `Insufficient Resources. Requirement: ${item.cost} CI. (Current: ${user.tokens} CI)`,
+                    flags: MessageFlags.Ephemeral
                 });
             }
 
@@ -70,8 +70,8 @@ module.exports = {
                 const bought = user.market_stock[item.id] || 0;
                 if (bought >= item.maxStock) {
                     return interaction.reply({
-                        content: `Out of Stock. You have purchased the maximum amount (${item.maxStock}) for this month.`,
-                        ephemeral: true
+                        content: `Stock Depleted. Monthly ration limit reached (${item.maxStock}).`,
+                        flags: MessageFlags.Ephemeral
                     });
                 }
             }
@@ -85,8 +85,8 @@ module.exports = {
                 // Block if Day 1 (Reset day) OR Last Day of Month (24h before reset)
                 if (day === 1 || day === lastDay) {
                     return interaction.reply({
-                        content: `Lottery Ticket purchases are locked 24h before and after the monthly reset.`,
-                        ephemeral: true
+                        content: `Supply Drop entries locked 24h pre/post cycle reset.`,
+                        flags: MessageFlags.Ephemeral
                     });
                 }
             }
@@ -94,7 +94,7 @@ module.exports = {
             // Modal
             const modal = new ModalBuilder()
                 .setCustomId(`market:modal:${itemId}:${interaction.message.id}`)
-                .setTitle(`Purchase ${item.name.substring(0, 30)}`); // Trim title
+                .setTitle(`Acquire ${item.name.substring(0, 30)}`); // Trim title
 
             const isLottery = item.id === 'lottery_ticket';
             const maxStock = isLottery ? 9999 : (item.maxStock - (user.market_stock[itemId] || 0));
@@ -121,12 +121,12 @@ module.exports = {
             const quantity = parseInt(interaction.fields.getTextInputValue('quantity'));
 
             if (isNaN(quantity) || quantity <= 0) {
-                return interaction.reply({ content: 'Invalid quantity.', ephemeral: true });
+                return interaction.reply({ content: 'Invalid quantity.', flags: MessageFlags.Ephemeral });
             }
 
             // Validation
             if (item.minLevel > user.level) {
-                return interaction.reply({ content: `Level requirement not met (Level ${item.minLevel}).`, ephemeral: true });
+                return interaction.reply({ content: `Clearance mismatch (Level ${item.minLevel}).`, flags: MessageFlags.Ephemeral });
             }
 
             const isLottery = item.id === 'lottery_ticket';
@@ -134,20 +134,20 @@ module.exports = {
                 const bought = user.market_stock[itemId] || 0;
                 const remaining = item.maxStock - bought;
                 if (quantity > remaining) {
-                    return interaction.reply({ content: `Insufficient stock. You only have ${remaining} left.`, ephemeral: true });
+                    return interaction.reply({ content: `Insufficient stock. Remaining: ${remaining}.`, flags: MessageFlags.Ephemeral });
                 }
             }
 
             const totalCost = item.cost * quantity;
             if (user.tokens < totalCost) {
-                return interaction.reply({ content: `Insufficient funds. Cost: ${totalCost} CI. You have: ${user.tokens} CI.`, ephemeral: true });
+                return interaction.reply({ content: `Insufficient funds. Cost: ${totalCost} CI. Available: ${user.tokens} CI.`, flags: MessageFlags.Ephemeral });
             }
 
             // Confirmation Buttons
             const embed = new EmbedBuilder()
                 .setColor(COLORS.WARNING)
-                .setTitle('Confirm Purchase')
-                .setDescription(`Are you sure you want to buy **${quantity}x ${item.name.replace(/ x\d+$/, '')}** for **${totalCost} CI**?`);
+                .setTitle('Confirm Acquisition')
+                .setDescription(`Confirm purchase of **${quantity}x ${item.name.replace(/ x\d+$/, '')}** for **${totalCost} CI**?`);
 
             const row = new ActionRowBuilder().addComponents(
                 new ButtonBuilder()
@@ -174,17 +174,17 @@ module.exports = {
 
             // Re-validate (race condition check)
             if (item.minLevel > user.level) {
-                return interaction.update({ content: 'Level requirement mismatch. Purchase failed.', embeds: [], components: [] });
+                return interaction.update({ content: 'Clearance mismatch. Transaction aborted.', embeds: [], components: [] });
             }
             const isLottery = item.id === 'lottery_ticket';
             const bought = user.market_stock[itemId] || 0;
 
             if (!isLottery && (bought + quantity) > item.maxStock) {
-                return interaction.update({ content: 'Stock changed. Purchase failed.', embeds: [], components: [] });
+                return interaction.update({ content: 'Stock mismatch. Transaction aborted.', embeds: [], components: [] });
             }
             const totalCost = item.cost * quantity;
             if (user.tokens < totalCost) {
-                 return interaction.update({ content: 'Balance changed. Purchase failed.', embeds: [], components: [] });
+                 return interaction.update({ content: 'Balance mismatch. Transaction aborted.', embeds: [], components: [] });
             }
 
             // Execute
@@ -217,14 +217,14 @@ module.exports = {
             // Success Embed (Public Update)
             let successDescription = '';
             if (isLottery) {
-                successDescription = `You purchased **${quantity}x Lottery Ticket**. Use the \`/lottery\` command to check your entries and progress!`;
+                successDescription = `Acquired **${quantity}x Supply Drop Entry**. Check status via \`/lottery\`.`;
             } else {
-                successDescription = `You purchased **${quantity}x ${item.name.replace(/ x\d+$/, '')}**.\n\nCheck your DMs for your redemption codes.`;
+                successDescription = `Acquired **${quantity}x ${item.name.replace(/ x\d+$/, '')}**.\n\nCheck secure channel (DM) for codes.`;
             }
 
             const successEmbed = new EmbedBuilder()
                 .setColor(COLORS.SUCCESS)
-                .setTitle('Purchase Successful')
+                .setTitle('Acquisition Confirmed')
                 .setDescription(successDescription);
 
             await interaction.update({ embeds: [successEmbed], components: [] });
@@ -234,17 +234,17 @@ module.exports = {
                 try {
                     const dmEmbed = new EmbedBuilder()
                         .setColor(COLORS.SUCCESS)
-                        .setTitle('Purchase Successful')
-                        .setDescription(`You purchased **${quantity}x ${item.name.replace(/ x\d+$/, '')}**.\n\n**Redemption Codes:**\n${codeString}`);
+                        .setTitle('Acquisition Confirmed')
+                        .setDescription(`Acquired **${quantity}x ${item.name.replace(/ x\d+$/, '')}**.\n\n**Access Codes:**\n${codeString}`);
                     await interaction.user.send({ embeds: [dmEmbed] });
                 } catch (err) {
                     // Safe-Drop: Ephemeral Follow-up
                     const safeDropEmbed = new EmbedBuilder()
                         .setColor(COLORS.WARNING)
-                        .setTitle('DM Delivery Failed')
-                        .setDescription(`Your privacy settings prevented DM delivery.\n\n**Here are your codes (Visible only to you):**\n${codeString}\n\n*Please copy these now.*`);
+                        .setTitle('Secure Channel Failed')
+                        .setDescription(`Privacy settings blocked transmission.\n\n**Access Codes (Restricted View):**\n${codeString}\n\n*Copy immediately.*`);
 
-                    await interaction.followUp({ embeds: [safeDropEmbed], ephemeral: true });
+                    await interaction.followUp({ embeds: [safeDropEmbed], flags: MessageFlags.Ephemeral });
                 }
             }
 
@@ -257,7 +257,7 @@ module.exports = {
                         // Re-render Select Menu
                         const select = new StringSelectMenuBuilder()
                             .setCustomId('market_select')
-                            .setPlaceholder('Select an item...');
+                            .setPlaceholder('Select Acquisition...');
 
                         MARKET_ITEMS.forEach(i => {
                             const bought = updatedUser.market_stock[i.id] || 0;
@@ -276,8 +276,8 @@ module.exports = {
                         const row = new ActionRowBuilder().addComponents(select);
                         const embed = new EmbedBuilder()
                             .setColor(COLORS.PRIMARY)
-                            .setTitle('Apex Market Store')
-                            .setDescription(`**Your Balance:** ${updatedUser.tokens} CI Tokens\n\nSelect an item below to purchase.`);
+                            .setTitle('Supply Depot')
+                            .setDescription(`**Available Resources:** ${updatedUser.tokens} Calamity Intel (CI)\n\nSelect an acquisition below.`);
 
                         await originalMsg.edit({ embeds: [embed], components: [row] });
                     }
@@ -291,8 +291,8 @@ module.exports = {
         else if (interaction.isButton() && interaction.customId === 'market:cancel') {
             const cancelEmbed = new EmbedBuilder()
                 .setColor(COLORS.ERROR)
-                .setTitle('Transaction Cancelled')
-                .setDescription('The purchase was cancelled.');
+                .setTitle('Transaction Aborted')
+                .setDescription('The acquisition was cancelled.');
 
             await interaction.update({ embeds: [cancelEmbed], components: [] });
         }

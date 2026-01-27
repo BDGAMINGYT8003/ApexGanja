@@ -3,7 +3,7 @@ const logger = require('../utils/logger');
 const db = require('../utils/database');
 
 module.exports = {
-    name: 'ready',
+    name: 'clientReady',
     once: true,
     async execute(client) {
         logger.info('Ready event triggered.');

@@ -1,4 +1,4 @@
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, MessageFlags } = require('discord.js');
 const db = require('./database');
 const { COLORS } = require('./constants');
 
@@ -51,17 +51,17 @@ async function handle(interaction) {
 async function sendWelcome(interaction) {
     const embed = new EmbedBuilder()
         .setColor(COLORS.PRIMARY)
-        .setTitle('Welcome to Apex Girls')
-        .setDescription('Before you can access the system, you must complete a brief tutorial.\n\nLearn how to earn rewards, climb the leaderboard, and dominate the Apex Grid.');
+        .setTitle('Welcome to the Apex Grid, Commander')
+        .setDescription('Identity Unverified. To access the Stellari Network, you must undergo mandatory orientation.\n\nLearn how to accrue Calamity Intel, secure resources, and command your Operators.');
 
     const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
             .setCustomId('onboard_step_1')
-            .setLabel('Start Tutorial')
+            .setLabel('Initiate Orientation')
             .setStyle(ButtonStyle.Primary)
     );
 
-    const payload = { embeds: [embed], components: [row], ephemeral: true };
+    const payload = { embeds: [embed], components: [row], flags: MessageFlags.Ephemeral };
     if (interaction.replied || interaction.deferred) {
         await interaction.editReply(payload);
     } else {
@@ -72,17 +72,17 @@ async function sendWelcome(interaction) {
 async function sendCurrencyInfo(interaction) {
     const embed = new EmbedBuilder()
         .setColor(COLORS.PRIMARY)
-        .setTitle('The Dual Currency System')
+        .setTitle('Resource Management Protocols')
         .addFields(
-            { name: 'Server XP', value: 'Earned by chatting. Resets monthly. Determines your Rank.', inline: true },
-            { name: 'CI Tokens', value: 'Earned by leveling up. Capped at 1400/month. Used in the Market.', inline: true }
+            { name: 'Server XP', value: 'Generated via active comms. Resets monthly. Determines your Clearance Level.', inline: true },
+            { name: 'Calamity Intel (CI)', value: 'Earn 1 CI per message and additional CI rewards upon leveling up. Used in the Supply Depot.', inline: true }
         )
-        .setFooter({ text: 'Step 1 of 4' });
+        .setFooter({ text: 'Protocol 1 of 4' });
 
     const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
             .setCustomId('onboard_step_2')
-            .setLabel('Next: The Market')
+            .setLabel('Next: Supply Depot')
             .setStyle(ButtonStyle.Primary)
     );
 
@@ -92,14 +92,14 @@ async function sendCurrencyInfo(interaction) {
 async function sendMarketInfo(interaction) {
     const embed = new EmbedBuilder()
         .setColor(COLORS.PRIMARY)
-        .setTitle('The Apex Market & Monthly Reset')
-        .setDescription('**Monthly Reset:** On the 1st of every month, XP, Levels, and Tokens reset. Use them or lose them!\n\n**The Market:** Spend CI Tokens on items. Each item has a limited stock per user that also resets monthly.')
-        .setFooter({ text: 'Step 2 of 4' });
+        .setTitle('Supply Depot & Cycle Reset')
+        .setDescription('**Cycle Reset:** On the 1st of every month, XP, Clearance Levels, and CI Tokens reset. Utilize resources before the wipe!\n\n**Supply Depot:** Exchange Calamity Intel for Echo Permits and upgrades. Stock is limited per Commander and resets monthly.')
+        .setFooter({ text: 'Protocol 2 of 4' });
 
     const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
             .setCustomId('onboard_step_3')
-            .setLabel('Next: The Lottery')
+            .setLabel('Next: Supply Drop')
             .setStyle(ButtonStyle.Primary)
     );
 
@@ -109,14 +109,14 @@ async function sendMarketInfo(interaction) {
 async function sendLotteryInfo(interaction) {
     const embed = new EmbedBuilder()
         .setColor(COLORS.PRIMARY)
-        .setTitle('The Monthly Lottery')
-        .setDescription('Participate in the monthly lottery to win exclusive prizes!\n\n- Buy tickets in the Market.\n- 3 Winners are picked randomly at the end of the month.\n- Purchases are locked 24h before/after the reset.')
-        .setFooter({ text: 'Step 3 of 4' });
+        .setTitle('Calamity Supply Drop')
+        .setDescription('Participate in the monthly Supply Drop to secure high-value assets!\n\n- Acquire tickets in the Supply Depot.\n- 3 Commanders are selected via RNG at the cycle end.\n- Acquisitions locked 24h pre/post reset.')
+        .setFooter({ text: 'Protocol 3 of 4' });
 
     const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
             .setCustomId('onboard_step_4')
-            .setLabel('Complete Setup')
+            .setLabel('Confirm Authorization')
             .setStyle(ButtonStyle.Success)
     );
 
@@ -130,8 +130,8 @@ async function completeOnboarding(interaction) {
 
     const embed = new EmbedBuilder()
         .setColor(COLORS.SUCCESS)
-        .setTitle('Setup Complete')
-        .setDescription('You are now registered in the Apex Grid. Good luck, Agent.');
+        .setTitle('Authorization Confirmed')
+        .setDescription('You are now registered in the Apex Grid. Good luck, Commander.');
 
     await interaction.update({ embeds: [embed], components: [] });
 }

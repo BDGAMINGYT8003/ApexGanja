@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle, MessageFlags } = require('discord.js');
 const db = require('../utils/database');
 const { COLORS } = require('../utils/constants');
 const { getProgressBar } = require('../utils/progressBar');
@@ -27,7 +27,7 @@ const USERS_PER_PAGE = 5;
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('leaderboard')
-        .setDescription('View the monthly leaderboard.'),
+        .setDescription('View the monthly Operator Rankings.'),
 
     async execute(interaction) {
         await this.renderLeaderboard(interaction, 1);
@@ -57,11 +57,11 @@ module.exports = {
                     // Open Modal
                     const modal = new ModalBuilder()
                         .setCustomId('leaderboard:modal:jump')
-                        .setTitle('Jump to Page');
+                        .setTitle('Jump to Sector');
 
                     const input = new TextInputBuilder()
                         .setCustomId('page_num')
-                        .setLabel(`Page Number (1-${totalPages})`)
+                        .setLabel(`Sector Number (1-${totalPages})`)
                         .setStyle(TextInputStyle.Short)
                         .setRequired(true);
 
@@ -81,7 +81,7 @@ module.exports = {
             const totalPages = Math.ceil(sorted.length / USERS_PER_PAGE) || 1;
 
             if (isNaN(input) || input < 1 || input > totalPages) {
-                return interaction.reply({ content: `Invalid page. Please enter a number between 1 and ${totalPages}.`, ephemeral: true });
+                return interaction.reply({ content: `Invalid Sector. Please enter a number between 1 and ${totalPages}.`, flags: MessageFlags.Ephemeral });
             }
 
             await this.renderLeaderboard(interaction, input, true);
@@ -106,17 +106,17 @@ module.exports = {
             const progressBar = getProgressBar(u.xp, nextXp, 5);
 
             return `**#${globalRank}** <@${u.id}> — **(${u.id})**\n` +
-                   `${EMOJIS.replyCont} Level: \`${u.level}\`\n` +
+                   `${EMOJIS.replyCont} Clearance: \`${u.level}\`\n` +
                    `${EMOJIS.reply} ${progressBar} (${u.xp}/${nextXp})`;
         }).join('\n\n');
 
         // User's Rank
         const userRank = sorted.findIndex(u => u.id === interaction.user.id) + 1;
-        const footerText = `Your position: #${userRank > 0 ? userRank : 'N/A'} ─ Page ${page} of ${totalPages}`;
+        const footerText = `Operator Status: #${userRank > 0 ? userRank : 'N/A'} ─ Sector ${page} of ${totalPages}`;
 
         const embed = new EmbedBuilder()
             .setColor(COLORS.PRIMARY)
-            .setTitle('Monthly Leaderboard')
+            .setTitle('Operator Rankings')
             .setDescription(description || 'No data available.')
             .setFooter({ text: footerText });
 
@@ -151,7 +151,7 @@ module.exports = {
         const actionRow = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
                 .setCustomId('leaderboard:jump')
-                .setLabel('Jump to Page')
+                .setLabel('Jump to Sector')
                 .setStyle(ButtonStyle.Secondary)
         );
 
