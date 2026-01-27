@@ -6,7 +6,7 @@ const xpSystem = require('../utils/xpSystem');
 
 const EMOJIS = {
     first: '<:DoubleArrowLeft:1458212845161283677>',
-    back: '<:SingleArrowLeft:1458212849204723825>',
+    back: '<:SingleArrowLeft:1458212849305387069>',
     refresh: '<:Refresh:1458212851637420224>',
     next: '<:SingleArrowRight:1458212847157903565>',
     last: '<:DoubleArrowRight:1446611400251281542>',
@@ -15,7 +15,7 @@ const EMOJIS = {
     // IDs for Buttons
     ids: {
         first: '1458212845161283677',
-        back: '1458212849204723825',
+        back: '1458212849305387069',
         refresh: '1458212851637420224',
         next: '1458212847157903565',
         last: '1446611400251281542'
