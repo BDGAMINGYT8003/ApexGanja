@@ -1,6 +1,8 @@
-const { SlashCommandBuilder, EmbedBuilder, MessageFlags } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, MessageFlags, ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
 const db = require('../utils/database');
 const { COLORS } = require('../utils/constants');
+const fs = require('fs');
+const path = require('path');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -61,5 +63,66 @@ module.exports = {
             .setFooter({ text: 'Supply Drop distributed via RNG at the end of every cycle.' });
 
         await interaction.reply({ embeds: [embed] });
+    },
+
+    async handleComponent(interaction) {
+        if (interaction.customId === 'lottery:claim') {
+            const modal = new ModalBuilder()
+                .setCustomId('lottery:submit')
+                .setTitle('Claim Supply Drop Reward');
+
+            const uidInput = new TextInputBuilder()
+                .setCustomId('uid')
+                .setLabel('Enter Apex Girls In-Game UID')
+                .setStyle(TextInputStyle.Short)
+                .setPlaceholder('e.g. 12345678')
+                .setRequired(true);
+
+            const row = new ActionRowBuilder().addComponents(uidInput);
+            modal.addComponents(row);
+
+            await interaction.showModal(modal);
+        }
+        else if (interaction.isModalSubmit() && interaction.customId === 'lottery:submit') {
+            const uid = interaction.fields.getTextInputValue('uid');
+            const userId = interaction.user.id;
+            const username = interaction.user.tag;
+
+            // Load existing claims
+            const claimsPath = path.join(__dirname, '../data/lottery_claims.json');
+            let claims = [];
+            try {
+                if (fs.existsSync(claimsPath)) {
+                    claims = JSON.parse(fs.readFileSync(claimsPath, 'utf8'));
+                }
+            } catch (err) {
+                console.error('Error reading lottery claims:', err);
+            }
+
+            // Append new claim
+            claims.push({
+                userId,
+                username,
+                uid,
+                timestamp: new Date().toISOString()
+            });
+
+            // Save
+            try {
+                fs.writeFileSync(claimsPath, JSON.stringify(claims, null, 2));
+            } catch (err) {
+                console.error('Error saving lottery claim:', err);
+                return interaction.reply({ content: 'Error saving claim data. Please contact support.', flags: MessageFlags.Ephemeral });
+            }
+
+            // Ephemeral Confirmation
+            const embed = new EmbedBuilder()
+                .setColor(COLORS.SUCCESS)
+                .setTitle('Claim Request Received')
+                .setDescription(`Your In-Game UID (\`${uid}\`) has been securely logged.\n\nDispatch protocols initiated. Central Command will verify and transmit assets to your in-game mailbox shortly. Patience, Commander.`)
+                .setFooter({ text: 'Apex Girls | Reward Processing' });
+
+            await interaction.reply({ embeds: [embed], flags: MessageFlags.Ephemeral });
+        }
     }
 };

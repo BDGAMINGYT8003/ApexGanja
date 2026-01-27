@@ -3,6 +3,8 @@ const fs = require('fs');
 const path = require('path');
 const db = require('./database');
 const logger = require('./logger');
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
+const { COLORS } = require('./constants');
 
 const REWARDS = {
     1: { count: 5, name: 'Starmap Echoes' },
@@ -28,15 +30,6 @@ function init(client) {
 }
 
 async function resetRoutine(client) {
-    // Reset COMPLETE users
-    const allUsers = db.getAllUsers('global'); // Wait, getAllUsers takes guildId. We need to iterate the raw cache for resetting ALL guilds.
-    // The previous code: `const cache = db.getCache();` returns the raw cache { complete: {...}, incomplete: {...} }?
-    // Let's check `getCache` implementation in `database.js`.
-    // It returns `cache`. `cache` is `{ complete: {}, incomplete: {} }`.
-    // The previous implementation of resetRoutine iterated `cache[guildId]`.
-    // But `cache` now has structure `cache.complete[guildId]` and `cache.incomplete[guildId]`.
-    // We need to fix this loop.
-
     const rawCache = db.getCache();
 
     // Iterate Complete Users
@@ -116,16 +109,6 @@ async function resetRoutine(client) {
                 lotteryWinners.push({ rank: i, id: winnerId });
 
                 // Remove all instances of this winner from pool (Unique Winners)
-                let newPool = [];
-                for(let j=0; j<lotteryPool.length; j++) {
-                    if (lotteryPool[j] !== winnerId) newPool.push(lotteryPool[j]);
-                }
-                // Update pool via splice/filter is cleaner but this works
-                // Actually filter is better
-                // lotteryPool = lotteryPool.filter(id => id !== winnerId); // Cannot assign to const
-                // We must use a loop or reassign logic if pool was let.
-
-                // Let's iterate backwards to splice
                 for (let k = lotteryPool.length - 1; k >= 0; k--) {
                     if (lotteryPool[k] === winnerId) {
                         lotteryPool.splice(k, 1);
@@ -137,7 +120,7 @@ async function resetRoutine(client) {
         // Process Lottery Winners
         for (const win of lotteryWinners) {
             const prizeName = LOTTERY_PRIZES[win.rank];
-            const code = `LOTTERY-${win.rank}-${Date.now().toString(36).toUpperCase()}`;
+            // No code generation for lottery winners, they must claim via UID
 
             // Update User Stats (Wins)
             const winnerUser = users.find(u => u.id === win.id);
@@ -152,8 +135,25 @@ async function resetRoutine(client) {
                 try {
                     const discordUser = await client.users.fetch(win.id);
                     if (discordUser) {
-                        await discordUser.send(`**Apex Monthly Lottery Winner!**\n\nCongratulations! You won **${win.rank === 1 ? '1st' : win.rank === 2 ? '2nd' : '3rd'} Place** in this month's lottery!\n\nPrize: **${prizeName}**\nCode: \`${code}\``);
-                        logger.success(`Sent lottery prize to ${win.id} (Rank ${win.rank})`);
+                        const embed = new EmbedBuilder()
+                            .setColor(COLORS.PRIMARY)
+                            .setTitle('Calamity Supply Drop: Acquisition Confirmed')
+                            .setDescription(`Attention Commander,\n\nYou have been selected as the **${win.rank === 1 ? '1st' : win.rank === 2 ? '2nd' : '3rd'} Place** recipient in this cycle's Calamity Supply Drop.\n\n**Acquired Asset:** ${prizeName}\n\nTo secure this asset, you must verify your identity by providing your In-Game UID via the secure channel below.`)
+                            .setFooter({ text: 'Apex Girls | Supply Drop Distribution' });
+
+                        const row = new ActionRowBuilder().addComponents(
+                            new ButtonBuilder()
+                                .setCustomId('lottery:claim')
+                                .setLabel('Claim Asset')
+                                .setStyle(ButtonStyle.Secondary),
+                            new ButtonBuilder()
+                                .setLabel('Stellari Network')
+                                .setStyle(ButtonStyle.Link)
+                                .setURL('https://apexgirlsen.neorigin.com/')
+                        );
+
+                        await discordUser.send({ embeds: [embed], components: [row] });
+                        logger.success(`Sent lottery prize DM to ${win.id} (Rank ${win.rank})`);
                     }
                 } catch (err) {
                     logger.error(`Failed to DM lottery prize to ${win.id}: ${err.message}`);

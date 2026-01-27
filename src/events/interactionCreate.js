@@ -5,10 +5,14 @@ const onboarding = require('../utils/onboarding');
 module.exports = {
     name: 'interactionCreate',
     async execute(interaction) {
-        // We only care about guild interactions for now
-        if (!interaction.guildId) return;
+        // Allow DM interactions for specific flows (e.g., Lottery Claims)
+        const isDMInteraction = !interaction.guildId;
+        const isLotteryFlow = interaction.customId && interaction.customId.startsWith('lottery:');
 
-        const user = db.getUser(interaction.guildId, interaction.user.id);
+        // We only care about guild interactions for now (except special flows)
+        if (isDMInteraction && !isLotteryFlow) return;
+
+        const user = interaction.guildId ? db.getUser(interaction.guildId, interaction.user.id) : null;
 
         // Check Onboarding
         // If user is not in DB (and not currently onboarding via component)
