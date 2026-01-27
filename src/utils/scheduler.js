@@ -1,4 +1,6 @@
 const cron = require('node-cron');
+const fs = require('fs');
+const path = require('path');
 const db = require('./database');
 const logger = require('./logger');
 
@@ -55,6 +57,27 @@ async function resetRoutine(client) {
                     }
                 } catch (err) {
                     logger.error(`Failed to DM reward to ${user.id}: ${err.message}`);
+                    // Fallback: Log to file
+                    const logDir = path.join(__dirname, '../../logs');
+                    if (!fs.existsSync(logDir)) fs.mkdirSync(logDir);
+                    const logFile = path.join(logDir, 'rewards.json');
+
+                    let logs = [];
+                    if (fs.existsSync(logFile)) {
+                        try {
+                            logs = JSON.parse(fs.readFileSync(logFile, 'utf8'));
+                        } catch (e) {}
+                    }
+                    logs.push({
+                        date: new Date().toISOString(),
+                        userId: user.id,
+                        rank: rank,
+                        prize: reward.name,
+                        code: code,
+                        error: err.message
+                    });
+                    fs.writeFileSync(logFile, JSON.stringify(logs, null, 2));
+                    logger.warn(`Logged reward for ${user.id} to logs/rewards.json due to DM failure.`);
                 }
             }
         }
