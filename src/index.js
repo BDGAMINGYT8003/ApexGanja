@@ -38,6 +38,7 @@ if (fs.existsSync(eventsPath)) {
     for (const file of eventFiles) {
         const filePath = path.join(eventsPath, file);
         const event = require(filePath);
+        logger.info(`Loaded event: ${event.name}`);
         if (event.once) {
             client.once(event.name, (...args) => event.execute(...args));
         } else {
@@ -47,6 +48,8 @@ if (fs.existsSync(eventsPath)) {
 }
 
 scheduler.init(client);
+
+logger.info('Attempting to connect to Discord Gateway...');
 
 client.login(process.env.BOT_TOKEN).catch(err => {
     logger.error('Login failed: ' + err.message);

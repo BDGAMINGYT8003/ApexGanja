@@ -6,6 +6,7 @@ module.exports = {
     name: 'ready',
     once: true,
     async execute(client) {
+        logger.info('Ready event triggered.');
         logger.success(`Logged in as ${client.user.tag}!`);
 
         // Init DB
