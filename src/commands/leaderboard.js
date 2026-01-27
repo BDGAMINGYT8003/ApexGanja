@@ -11,7 +11,15 @@ const EMOJIS = {
     next: '<:SingleArrowRight:1458212847157903565>',
     last: '<:DoubleArrowRight:1446611400251281542>',
     replyCont: '<:ReplyCont:1457839483541127208>',
-    reply: '<:Reply:1457839486011445391>'
+    reply: '<:Reply:1457839486011445391>',
+    // IDs for Buttons
+    ids: {
+        first: '1458212845161283677',
+        back: '1458212849204723825',
+        refresh: '1458212851637420224',
+        next: '1458212847157903565',
+        last: '1446611400251281542'
+    }
 };
 
 const USERS_PER_PAGE = 5;
@@ -116,26 +124,26 @@ module.exports = {
         const navRow = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
                 .setCustomId(`leaderboard:first:${page}`)
-                .setEmoji(EMOJIS.first)
+                .setEmoji(EMOJIS.ids.first)
                 .setStyle(ButtonStyle.Primary)
                 .setDisabled(page === 1),
             new ButtonBuilder()
                 .setCustomId(`leaderboard:back:${page}`)
-                .setEmoji(EMOJIS.back)
+                .setEmoji(EMOJIS.ids.back)
                 .setStyle(ButtonStyle.Primary)
                 .setDisabled(page === 1),
             new ButtonBuilder()
                 .setCustomId(`leaderboard:refresh:${page}`)
-                .setEmoji(EMOJIS.refresh)
+                .setEmoji(EMOJIS.ids.refresh)
                 .setStyle(ButtonStyle.Primary),
             new ButtonBuilder()
                 .setCustomId(`leaderboard:next:${page}`)
-                .setEmoji(EMOJIS.next)
+                .setEmoji(EMOJIS.ids.next)
                 .setStyle(ButtonStyle.Primary)
                 .setDisabled(page === totalPages),
             new ButtonBuilder()
                 .setCustomId(`leaderboard:last:${page}`)
-                .setEmoji(EMOJIS.last)
+                .setEmoji(EMOJIS.ids.last)
                 .setStyle(ButtonStyle.Primary)
                 .setDisabled(page === totalPages)
         );
