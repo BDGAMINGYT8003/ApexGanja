@@ -137,7 +137,6 @@ async function resetRoutine(client) {
         // Process Lottery Winners
         for (const win of lotteryWinners) {
             const prizeName = LOTTERY_PRIZES[win.rank];
-            const code = `LOTTERY-${win.rank}-${Date.now().toString(36).toUpperCase()}`;
 
             // Update User Stats (Wins)
             const winnerUser = users.find(u => u.id === win.id);
@@ -148,15 +147,45 @@ async function resetRoutine(client) {
                 if (win.rank === 2) winnerUser.lottery.wins.second++;
                 if (win.rank === 3) winnerUser.lottery.wins.third++;
 
-                // DM
+                // DM with Claim Embed
                 try {
                     const discordUser = await client.users.fetch(win.id);
                     if (discordUser) {
-                        await discordUser.send(`**Apex Monthly Lottery Winner!**\n\nCongratulations! You won **${win.rank === 1 ? '1st' : win.rank === 2 ? '2nd' : '3rd'} Place** in this month's lottery!\n\nPrize: **${prizeName}**\nCode: \`${code}\``);
-                        logger.success(`Sent lottery prize to ${win.id} (Rank ${win.rank})`);
+                        const rankStr = win.rank === 1 ? '1st' : win.rank === 2 ? '2nd' : '3rd';
+                        const claimEmbed = new EmbedBuilder()
+                            .setColor(0xE91E63) // PRIMARY
+                            .setTitle('Apex Girls Monthly Lottery')
+                            .setDescription(`🎉 **Congratulations!** 🎉\n\nYou have won **${rankStr} Place** in this month's Apex Lottery!\n\n**Prize:** ${prizeName}\n\nTo receive your in-game reward, please click the "Claim Reward" button below and enter your In-Game UID.`)
+                            .setFooter({ text: 'Apex Girls Universe' });
+
+                        const row = new ActionRowBuilder().addComponents(
+                            new ButtonBuilder()
+                                .setCustomId(`lottery:claim:${win.rank}`)
+                                .setLabel('Claim Reward')
+                                .setStyle(ButtonStyle.Secondary), // Gray
+                            new ButtonBuilder()
+                                .setLabel('Official Website')
+                                .setStyle(ButtonStyle.Link)
+                                .setURL('https://apexgirlsen.neorigin.com/')
+                        );
+
+                        await discordUser.send({ embeds: [claimEmbed], components: [row] });
+                        logger.success(`Sent lottery prize DM to ${win.id} (Rank ${win.rank})`);
                     }
                 } catch (err) {
                     logger.error(`Failed to DM lottery prize to ${win.id}: ${err.message}`);
+                    // Should we fallback log here? The prompt implies "Lottery winners submit UIDs", so without DM they can't submit.
+                    // But we should log it so admins know they won but didn't get DM.
+                    const logDir = path.join(__dirname, '../../logs');
+                    if (!fs.existsSync(logDir)) fs.mkdirSync(logDir);
+                    const logFile = path.join(logDir, 'lottery_fails.json');
+
+                    let logs = [];
+                    if (fs.existsSync(logFile)) {
+                        try { logs = JSON.parse(fs.readFileSync(logFile, 'utf8')); } catch (e) {}
+                    }
+                    logs.push({ date: new Date().toISOString(), userId: win.id, rank: win.rank, error: err.message });
+                    fs.writeFileSync(logFile, JSON.stringify(logs, null, 2));
                 }
             }
         }
