@@ -124,8 +124,8 @@ async function sendLotteryInfo(interaction) {
 }
 
 async function completeOnboarding(interaction) {
-    // Register User
-    db.createUser(interaction.guildId, interaction.user.id);
+    // Migrate or Create User
+    db.migrateToComplete(interaction.guildId, interaction.user.id);
     db.save(); // Force save to be safe
 
     const embed = new EmbedBuilder()

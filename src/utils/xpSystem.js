@@ -36,16 +36,27 @@ function getTokenReward(level) {
  * @returns {Object|null} Result object { xpGained, newLevel, tokensAwarded } or null if no XP
  */
 function processMessage(guildId, userId, content) {
-    const user = db.getUser(guildId, userId);
-    if (!user) return null; // Not onboarded
+    // 1. Determine User Status (Complete vs Incomplete)
+    let user = db.getUser(guildId, userId);
+    let isComplete = true;
 
-    // 1. Length Check
+    if (!user) {
+        user = db.getIncompleteUser(guildId, userId);
+        isComplete = false;
+
+        // If not even in incomplete, create it (Silent Reward System)
+        if (!user) {
+            user = db.createIncompleteUser(guildId, userId);
+        }
+    }
+
+    // 2. Length Check
     if (content.length < 7) return null;
 
-    // 2. Entropy Check
+    // 3. Entropy Check
     if (user.last_message_content === content) return null;
 
-    // 3. Cooldown Check
+    // 4. Cooldown Check
     const now = Date.now();
     const lastXpTime = cooldowns.get(userId) || 0;
     if (now - lastXpTime < 60000) return null;
@@ -82,16 +93,23 @@ function processMessage(guildId, userId, content) {
         requiredXp = getXpForNextLevel(currentLevel);
     }
 
-    // Save to DB (In-memory cache)
-    db.updateUser(guildId, userId, {
+    // Save to DB (Update appropriate cache)
+    const updateData = {
         xp: currentXp,
         total_xp: totalXp,
         level: currentLevel,
         tokens: tokens,
         last_message_content: content
-    });
+    };
+
+    if (isComplete) {
+        db.updateUser(guildId, userId, updateData);
+    } else {
+        db.updateIncompleteUser(guildId, userId, updateData);
+    }
 
     return {
+        notify: isComplete, // Only notify if user is fully onboarded
         xpGained,
         currentXp,
         oldLevel: leveledUp ? oldLevel : null,

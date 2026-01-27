@@ -13,7 +13,8 @@ module.exports = {
         // Process XP
         const result = xpSystem.processMessage(message.guild.id, message.author.id, message.content);
 
-        if (result && result.newLevel) {
+        // Only notify if user is fully onboarded (notify flag is true)
+        if (result && result.newLevel && result.notify) {
             const nextXp = xpSystem.getXpForNextLevel(result.newLevel);
             const progressBar = getProgressBar(result.currentXp, nextXp, 5);
 

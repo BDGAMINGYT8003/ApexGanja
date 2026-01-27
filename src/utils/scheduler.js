@@ -28,11 +28,20 @@ function init(client) {
 }
 
 async function resetRoutine(client) {
-    const cache = db.getCache();
+    // Reset COMPLETE users
+    const allUsers = db.getAllUsers('global'); // Wait, getAllUsers takes guildId. We need to iterate the raw cache for resetting ALL guilds.
+    // The previous code: `const cache = db.getCache();` returns the raw cache { complete: {...}, incomplete: {...} }?
+    // Let's check `getCache` implementation in `database.js`.
+    // It returns `cache`. `cache` is `{ complete: {}, incomplete: {} }`.
+    // The previous implementation of resetRoutine iterated `cache[guildId]`.
+    // But `cache` now has structure `cache.complete[guildId]` and `cache.incomplete[guildId]`.
+    // We need to fix this loop.
 
-    // Iterate over Guilds
-    for (const guildId in cache) {
-        const users = Object.values(cache[guildId]);
+    const rawCache = db.getCache();
+
+    // Iterate Complete Users
+    for (const guildId in rawCache.complete) {
+        const users = Object.values(rawCache.complete[guildId]);
 
         // 1. Leaderboard Payout
         const sorted = users.sort((a, b) => (b.total_xp || 0) - (a.total_xp || 0));
@@ -159,21 +168,32 @@ async function resetRoutine(client) {
             u.lottery.current_tickets = 0; // Reset tickets
         });
 
-        // 3. Reset Data (General)
+        // 3. Reset Data (General - Complete Users)
         users.forEach(u => {
             u.xp = 0;
-            u.level = 1; // Reset to Level 1 (Baseline)
+            u.level = 1;
             u.total_xp = 0;
             u.tokens = 0;
             u.market_stock = {};
-            // Note: Lottery tickets were reset above for participants.
-            // Ensure non-participants (who might have 0 tickets but data exists) are fine.
-            // If they didn't participate, current_tickets is 0 already.
-            // Safety reset just in case:
             if (u.lottery) u.lottery.current_tickets = 0;
         });
 
-        logger.info(`Reset complete for guild ${guildId}`);
+        logger.info(`Reset complete users for guild ${guildId}`);
+    }
+
+    // Iterate Incomplete Users
+    for (const guildId in rawCache.incomplete) {
+        const users = Object.values(rawCache.incomplete[guildId]);
+        users.forEach(u => {
+            u.xp = 0;
+            u.level = 1;
+            u.total_xp = 0;
+            u.tokens = 0;
+            // Incomplete users don't have market_stock or lottery usually, but if they did, reset.
+            if (u.market_stock) u.market_stock = {};
+            if (u.lottery) u.lottery.current_tickets = 0;
+        });
+        logger.info(`Reset incomplete users for guild ${guildId}`);
     }
 
     db.save();

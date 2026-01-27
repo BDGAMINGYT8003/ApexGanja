@@ -11,9 +11,14 @@ module.exports = {
         .addUserOption(option => option.setName('user').setDescription('The user to view')),
     async execute(interaction) {
         const targetUser = interaction.options.getUser('user') || interaction.user;
-        const user = db.getUser(interaction.guildId, targetUser.id);
+        let user = db.getUser(interaction.guildId, targetUser.id);
 
         if (!user) {
+            // Check Incomplete
+            const incompleteUser = db.getIncompleteUser(interaction.guildId, targetUser.id);
+            if (incompleteUser) {
+                return interaction.reply({ content: 'This user exists in the database but has not onboarded yet.', ephemeral: true });
+            }
             return interaction.reply({ content: 'User not found in the database.', ephemeral: true });
         }
 
