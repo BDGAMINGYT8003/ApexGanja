@@ -16,12 +16,14 @@ module.exports = {
         // Calculate Global Stats
         let totalTickets = 0;
         let totalUnique = 0;
+        let totalPoolWeight = 0;
 
         users.forEach(u => {
             const t = u.lottery?.current_tickets || 0;
             if (t > 0) {
                 totalTickets += t;
                 totalUnique++;
+                totalPoolWeight += Math.log10(t + 1) + 1;
             }
         });
 
@@ -31,7 +33,11 @@ module.exports = {
         const wins = user.lottery?.wins || { first: 0, second: 0, third: 0 };
         const joined = user.lottery?.joined || 0;
 
-        const winChance = totalTickets > 0 ? ((userTickets / totalTickets) * 100).toFixed(2) : '0.00';
+        let winChance = '0.00';
+        if (userTickets > 0 && totalPoolWeight > 0) {
+            const userWeight = Math.log10(userTickets + 1) + 1;
+            winChance = ((userWeight / totalPoolWeight) * 100).toFixed(2);
+        }
 
         // End Timestamp (End of current month)
         const now = new Date();

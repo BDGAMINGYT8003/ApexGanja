@@ -49,6 +49,28 @@ module.exports = {
 
                 await message.reply({ embeds: [fallbackEmbed] });
             }
+
+            // Public Announcement (if configured)
+            const settings = db.getGuildSettings(message.guild.id);
+            if (settings.level_up_channel) {
+                const channel = message.guild.channels.cache.get(settings.level_up_channel);
+                if (channel && channel.isTextBased()) {
+                    // Check permissions
+                    const perms = channel.permissionsFor(message.client.user);
+                    if (perms.has('ViewChannel') && perms.has('SendMessages')) {
+                        const announcementEmbed = new EmbedBuilder()
+                            .setColor(COLORS.PRIMARY)
+                            .setTitle('Clearance Level Updated')
+                            .setDescription(`> **Protocol Broadcast:**\n> Agent ${message.author} has been promoted to **Level ${result.newLevel}**.\n> Increased access to Apex Grid resources authorized.`)
+                            .addFields(
+                                { name: 'Rewards Received', value: `- +${result.tokensAwarded} Calamity Intel (CI) Tokens`, inline: true }
+                            )
+                            .setFooter({ text: timestamp });
+
+                        channel.send({ embeds: [announcementEmbed] }).catch(console.error);
+                    }
+                }
+            }
         }
     }
 };

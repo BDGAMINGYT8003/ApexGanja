@@ -91,46 +91,99 @@ async function resetRoutine(client) {
             }
         }
 
-        // 2. Lottery Drawing
-        // Build Pool
-        const lotteryPool = [];
-        const lotteryParticipants = [];
+        // 2. Lottery Drawing (Logarithmic Weighting)
+        let lotteryParticipants = [];
+        let totalTicketsGlobal = 0;
+        let totalPoolWeight = 0;
 
+        // Build Weighted Pool
         users.forEach(u => {
-            if (u.lottery && u.lottery.current_tickets > 0) {
-                lotteryParticipants.push(u);
-                for(let k=0; k < u.lottery.current_tickets; k++) {
-                    lotteryPool.push(u.id);
-                }
+            const tickets = u.lottery?.current_tickets || 0;
+            if (tickets > 0) {
+                totalTicketsGlobal += tickets;
+                const weight = Math.log10(tickets + 1) + 1;
+                lotteryParticipants.push({
+                    id: u.id,
+                    tickets: tickets,
+                    weight: weight,
+                    user: u // reference to user obj
+                });
+                totalPoolWeight += weight;
             }
         });
 
-        // Select Winners
+        const initialTotalWeight = totalPoolWeight; // Store for stats
+
+        // Select Winners (Weighted Random)
         const lotteryWinners = [];
-        if (lotteryPool.length > 0) {
+        const topSpenders = [...lotteryParticipants].sort((a, b) => b.tickets - a.tickets).slice(0, 3);
+
+        if (lotteryParticipants.length > 0) {
             for (let i = 1; i <= 3; i++) {
-                if (lotteryPool.length === 0) break;
+                if (lotteryParticipants.length === 0) break;
 
-                const winIndex = Math.floor(Math.random() * lotteryPool.length);
-                const winnerId = lotteryPool[winIndex];
-                lotteryWinners.push({ rank: i, id: winnerId });
+                // Pick a random weight
+                let r = Math.random() * totalPoolWeight;
+                let winner = null;
 
-                // Remove all instances of this winner from pool (Unique Winners)
-                let newPool = [];
-                for(let j=0; j<lotteryPool.length; j++) {
-                    if (lotteryPool[j] !== winnerId) newPool.push(lotteryPool[j]);
-                }
-                // Update pool via splice/filter is cleaner but this works
-                // Actually filter is better
-                // lotteryPool = lotteryPool.filter(id => id !== winnerId); // Cannot assign to const
-                // We must use a loop or reassign logic if pool was let.
-
-                // Let's iterate backwards to splice
-                for (let k = lotteryPool.length - 1; k >= 0; k--) {
-                    if (lotteryPool[k] === winnerId) {
-                        lotteryPool.splice(k, 1);
+                for (const p of lotteryParticipants) {
+                    if (r < p.weight) {
+                        winner = p;
+                        break;
                     }
+                    r -= p.weight;
                 }
+
+                // Fallback
+                if (!winner) winner = lotteryParticipants[lotteryParticipants.length - 1];
+
+                lotteryWinners.push({ rank: i, id: winner.id });
+
+                // Remove winner from participants for next draw (Unique Winners)
+                totalPoolWeight -= winner.weight;
+                lotteryParticipants = lotteryParticipants.filter(p => p.id !== winner.id);
+            }
+        }
+
+        // Public Lottery Announcement (if configured)
+        const settings = db.getGuildSettings(guildId);
+        if (settings.lottery_channel) {
+            try {
+                const channel = await client.channels.fetch(settings.lottery_channel);
+                if (channel && channel.isTextBased()) {
+                    const embed = new EmbedBuilder()
+                        .setColor(0xE91E63) // PRIMARY hardcoded or import
+                        .setTitle('Calamity Supply Drop: Monthly Results')
+                        .setDescription(
+                            `🥇 <@${lotteryWinners.find(w => w.rank === 1)?.id || 'None'}>\n` +
+                            `🥈 <@${lotteryWinners.find(w => w.rank === 2)?.id || 'None'}>\n` +
+                            `🥉 <@${lotteryWinners.find(w => w.rank === 3)?.id || 'None'}>`
+                        )
+                        .addFields(
+                            {
+                                name: 'Winning Rewards',
+                                value: `🥇 \`${LOTTERY_PRIZES[1]}\`\n🥈 \`${LOTTERY_PRIZES[2]}\`\n🥉 \`${LOTTERY_PRIZES[3]}\``,
+                                inline: false
+                            },
+                            {
+                                name: 'Lottery Stats',
+                                value: `- Total Users: \`${users.filter(u => (u.lottery?.current_tickets||0) > 0).length}\`\n- Total Tickets: \`${totalTicketsGlobal}\``,
+                                inline: false
+                            },
+                            {
+                                name: 'Top 3 Spenders',
+                                value: topSpenders.map(p => {
+                                    const winChance = ((p.weight / initialTotalWeight) * 100).toFixed(2);
+                                    return `\` ${winChance}% \` \` ${p.tickets * 150} Tokens \` <@${p.id}>`;
+                                }).join('\n') || 'None'
+                            }
+                        )
+                        .setFooter({ text: 'Winners drawn via Logarithmic Weighting' });
+
+                    await channel.send({ embeds: [embed] });
+                }
+            } catch (err) {
+                logger.error(`Failed to send lottery announcement in guild ${guildId}: ${err.message}`);
             }
         }
 
