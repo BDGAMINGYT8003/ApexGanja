@@ -14,19 +14,20 @@ module.exports = {
 
         const user = interaction.guildId ? db.getUser(interaction.guildId, interaction.user.id) : null;
 
-        // Check Onboarding
+        // Check Onboarding (Skip for Lottery Flows in DM or Guild)
         // If user is not in DB (and not currently onboarding via component)
+        const isOnboardingInteraction = interaction.isButton() && interaction.customId && interaction.customId.startsWith('onboard_');
 
-        const isOnboardingInteraction = interaction.isButton() && interaction.customId.startsWith('onboard_');
+        if (!isLotteryFlow) {
+            if (!user && !isOnboardingInteraction) {
+                 await onboarding.handle(interaction);
+                 return;
+            }
 
-        if (!user && !isOnboardingInteraction) {
-             await onboarding.handle(interaction);
-             return;
-        }
-
-        if (isOnboardingInteraction) {
-            await onboarding.handle(interaction);
-            return;
+            if (isOnboardingInteraction) {
+                await onboarding.handle(interaction);
+                return;
+            }
         }
 
         // Handle Commands

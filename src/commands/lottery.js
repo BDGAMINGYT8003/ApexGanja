@@ -3,6 +3,7 @@ const db = require('../utils/database');
 const { COLORS } = require('../utils/constants');
 const fs = require('fs');
 const path = require('path');
+const { calculateWeight } = require('../utils/scheduler');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -18,12 +19,14 @@ module.exports = {
         // Calculate Global Stats
         let totalTickets = 0;
         let totalUnique = 0;
+        let globalTotalWeight = 0;
 
         users.forEach(u => {
             const t = u.lottery?.current_tickets || 0;
             if (t > 0) {
                 totalTickets += t;
                 totalUnique++;
+                globalTotalWeight += calculateWeight(t);
             }
         });
 
@@ -33,7 +36,9 @@ module.exports = {
         const wins = user.lottery?.wins || { first: 0, second: 0, third: 0 };
         const joined = user.lottery?.joined || 0;
 
-        const winChance = totalTickets > 0 ? ((userTickets / totalTickets) * 100).toFixed(2) : '0.00';
+        // Calculate Weighted Probability
+        const userWeight = calculateWeight(userTickets);
+        const winChance = globalTotalWeight > 0 ? ((userWeight / globalTotalWeight) * 100).toFixed(2) : '0.00';
 
         // End Timestamp (End of current month)
         const now = new Date();

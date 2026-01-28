@@ -4,10 +4,12 @@ const logger = require('./logger');
 
 const COMPLETE_DB_PATH = path.join(__dirname, '../data/complete.json');
 const INCOMPLETE_DB_PATH = path.join(__dirname, '../data/incomplete.json');
+const SETTINGS_DB_PATH = path.join(__dirname, '../data/settings.json');
 
 let cache = {
     complete: {},
-    incomplete: {}
+    incomplete: {},
+    settings: {}
 };
 let saveInterval = null;
 
@@ -34,10 +36,18 @@ function load() {
             fs.writeFileSync(INCOMPLETE_DB_PATH, '{}');
         }
 
-        logger.info('Database loaded (Dual-File System).');
+        // Load Settings
+        if (fs.existsSync(SETTINGS_DB_PATH)) {
+            cache.settings = JSON.parse(fs.readFileSync(SETTINGS_DB_PATH, 'utf8'));
+        } else {
+            cache.settings = {};
+            fs.writeFileSync(SETTINGS_DB_PATH, '{}');
+        }
+
+        logger.info('Database loaded (Triple-File System).');
     } catch (err) {
         logger.error('Failed to load database: ' + err.message);
-        cache = { complete: {}, incomplete: {} };
+        cache = { complete: {}, incomplete: {}, settings: {} };
     }
 }
 
@@ -45,6 +55,7 @@ function save() {
     try {
         fs.writeFileSync(COMPLETE_DB_PATH, JSON.stringify(cache.complete, null, 2));
         fs.writeFileSync(INCOMPLETE_DB_PATH, JSON.stringify(cache.incomplete, null, 2));
+        fs.writeFileSync(SETTINGS_DB_PATH, JSON.stringify(cache.settings, null, 2));
         logger.event('Database saved to disk (Background Task).');
     } catch (err) {
         logger.error('Failed to save database: ' + err.message);
@@ -112,6 +123,19 @@ function getAllIncompleteUsers(guildId) {
     return cache.incomplete[guildId] || {};
 }
 
+// --- SETTINGS ---
+
+function getSettings(guildId) {
+    if (!cache.settings[guildId]) cache.settings[guildId] = {};
+    return cache.settings[guildId];
+}
+
+function updateSettings(guildId, key, value) {
+    if (!cache.settings[guildId]) cache.settings[guildId] = {};
+    cache.settings[guildId][key] = value;
+    return cache.settings[guildId];
+}
+
 // --- MIGRATION ---
 
 function migrateToComplete(guildId, userId) {
@@ -169,5 +193,7 @@ module.exports = {
     updateIncompleteUser,
     getAllIncompleteUsers,
     migrateToComplete,
+    getSettings,
+    updateSettings,
     getCache
 };

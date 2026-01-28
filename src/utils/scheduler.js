@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const db = require('./database');
 const logger = require('./logger');
-const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } = require('discord.js');
+const { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, PermissionFlagsBits } = require('discord.js');
 const { COLORS } = require('./constants');
 
 const REWARDS = {
@@ -19,6 +19,11 @@ const LOTTERY_PRIZES = {
     2: 'Rare Apex Girls In-Game Item',
     3: 'Uncommon Apex Girls In-Game Item'
 };
+
+function calculateWeight(tickets) {
+    if (tickets <= 0) return 0;
+    return Math.log10(tickets + 1) + 1;
+}
 
 function init(client) {
     // 0 0 1 * * = At 00:00 on day-of-month 1.
@@ -84,45 +89,63 @@ async function resetRoutine(client) {
             }
         }
 
-        // 2. Lottery Drawing
-        // Build Pool
-        const lotteryPool = [];
+        // 2. Lottery Drawing (Logarithmic)
         const lotteryParticipants = [];
+        let totalGlobalTickets = 0;
 
         users.forEach(u => {
             if (u.lottery && u.lottery.current_tickets > 0) {
                 lotteryParticipants.push(u);
-                for(let k=0; k < u.lottery.current_tickets; k++) {
-                    lotteryPool.push(u.id);
-                }
+                totalGlobalTickets += u.lottery.current_tickets;
             }
         });
 
         // Select Winners
         const lotteryWinners = [];
-        if (lotteryPool.length > 0) {
-            for (let i = 1; i <= 3; i++) {
-                if (lotteryPool.length === 0) break;
 
-                const winIndex = Math.floor(Math.random() * lotteryPool.length);
-                const winnerId = lotteryPool[winIndex];
-                lotteryWinners.push({ rank: i, id: winnerId });
+        // Clone for safe manipulation
+        let currentPool = [...lotteryParticipants];
 
-                // Remove all instances of this winner from pool (Unique Winners)
-                for (let k = lotteryPool.length - 1; k >= 0; k--) {
-                    if (lotteryPool[k] === winnerId) {
-                        lotteryPool.splice(k, 1);
-                    }
+        for (let i = 1; i <= 3; i++) {
+            if (currentPool.length === 0) break;
+
+            // Calculate Total Weight for current pool
+            let totalWeight = 0;
+            currentPool.forEach(u => {
+                totalWeight += calculateWeight(u.lottery.current_tickets);
+            });
+
+            // Random Pick
+            let random = Math.random() * totalWeight;
+            let selectedUser = null;
+            let accumulatedWeight = 0;
+
+            for (const user of currentPool) {
+                accumulatedWeight += calculateWeight(user.lottery.current_tickets);
+                if (accumulatedWeight >= random) {
+                    selectedUser = user;
+                    break;
                 }
             }
+
+            // Fallback (rounding errors)
+            if (!selectedUser) selectedUser = currentPool[currentPool.length - 1];
+
+            const userWeight = calculateWeight(selectedUser.lottery.current_tickets);
+            const winChance = ((userWeight / totalWeight) * 100).toFixed(2);
+
+            lotteryWinners.push({ rank: i, id: selectedUser.id, user: selectedUser, chance: winChance });
+
+            // Remove winner from pool to ensure unique winners
+            currentPool = currentPool.filter(u => u.id !== selectedUser.id);
         }
 
-        // Process Lottery Winners
+        // Process Lottery Winners (Notifications)
         for (const win of lotteryWinners) {
             const prizeName = LOTTERY_PRIZES[win.rank];
-            // No code generation for lottery winners, they must claim via UID
 
             // Update User Stats (Wins)
+            // Use find in original array to update DB reference
             const winnerUser = users.find(u => u.id === win.id);
             if (winnerUser) {
                 if (!winnerUser.lottery.wins) winnerUser.lottery.wins = { first: 0, second: 0, third: 0 };
@@ -160,6 +183,70 @@ async function resetRoutine(client) {
                 }
             }
         }
+
+        // Public Announcement
+        const settings = db.getSettings(guildId);
+        if (settings && settings.lotteryChannelId && lotteryWinners.length > 0) {
+             try {
+                const channel = await client.channels.fetch(settings.lotteryChannelId);
+                 if (channel && channel.guild.id === guildId && channel.permissionsFor(client.user).has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages])) {
+
+                    // Top Spenders logic
+                    // Sort participants by tickets spent (desc)
+                    const topSpenders = [...lotteryParticipants].sort((a, b) => b.lottery.current_tickets - a.lottery.current_tickets).slice(0, 3);
+
+                    // Total Weight of ALL participants
+                    let globalTotalWeight = 0;
+                    lotteryParticipants.forEach(u => globalTotalWeight += calculateWeight(u.lottery.current_tickets));
+
+                    const spendersField = topSpenders.map(u => {
+                         const weight = calculateWeight(u.lottery.current_tickets);
+                         const percent = ((weight / globalTotalWeight) * 100).toFixed(2);
+                         // Assuming 'tokens spent' is approximate based on ticket cost (150 CI)
+                         // But request says "Tokens_Spent", let's calculate: tickets * 150
+                         const spent = u.lottery.current_tickets * 150;
+                         return `\` ${percent}% \` \` ${spent} Tokens \` <@${u.id}>`;
+                    }).join('\n') || 'None';
+
+                    const first = lotteryWinners.find(w => w.rank === 1);
+                    const second = lotteryWinners.find(w => w.rank === 2);
+                    const third = lotteryWinners.find(w => w.rank === 3);
+
+                    const embed = new EmbedBuilder()
+                        .setColor(COLORS.PRIMARY)
+                        .setTitle('Calamity Supply Drop: Cycle Conclusion')
+                        .setDescription(
+                            `> 🥇 ${first ? `<@${first.id}>` : 'N/A'}\n` +
+                            `> 🥈 ${second ? `<@${second.id}>` : 'N/A'}\n` +
+                            `> 🥉 ${third ? `<@${third.id}>` : 'N/A'}`
+                        )
+                        .addFields(
+                            {
+                                name: 'Winning Assets',
+                                value: `> - 🥇 \`${LOTTERY_PRIZES[1]}\`\n> - 🥈 \`${LOTTERY_PRIZES[2]}\`\n> - 🥉 \`${LOTTERY_PRIZES[3]}\``
+                            },
+                            {
+                                name: 'Acquisition Probability',
+                                value: `> - 🥇 \`${first ? first.chance : '0'}%\`\n> - 🥈 \`${second ? second.chance : '0'}%\`\n> - 🥉 \`${third ? third.chance : '0'}%\``
+                            },
+                            {
+                                name: 'Supply Statistics',
+                                value: `> - Total Agents: \`${lotteryParticipants.length}\`\n> - Total Entries: \`${totalGlobalTickets}\``
+                            },
+                            {
+                                name: 'Top Contributors',
+                                value: spendersField
+                            }
+                        )
+                        .setFooter({ text: new Date().toISOString() });
+
+                    await channel.send({ embeds: [embed] });
+                 }
+             } catch (err) {
+                 logger.error('Failed to send public lottery announcement: ' + err.message);
+             }
+        }
+
 
         // Update Lottery Lifetime Stats (Joined) & Reset Current Tickets
         lotteryParticipants.forEach(u => {
@@ -200,4 +287,4 @@ async function resetRoutine(client) {
     logger.success('Monthly Reset All Complete.');
 }
 
-module.exports = { init };
+module.exports = { init, calculateWeight };

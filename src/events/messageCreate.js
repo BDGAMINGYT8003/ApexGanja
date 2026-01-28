@@ -1,6 +1,6 @@
 const xpSystem = require('../utils/xpSystem');
 const { getProgressBar } = require('../utils/progressBar');
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, PermissionFlagsBits } = require('discord.js');
 const { COLORS } = require('../utils/constants');
 const db = require('../utils/database');
 
@@ -48,6 +48,28 @@ module.exports = {
                     .setFooter({ text: timestamp });
 
                 await message.reply({ embeds: [fallbackEmbed] });
+            }
+
+            // Public Announcement
+            const settings = db.getSettings(message.guild.id);
+            if (settings && settings.levelUpChannelId) {
+                try {
+                    const channel = await message.guild.channels.fetch(settings.levelUpChannelId);
+                    if (channel && channel.permissionsFor(message.client.user).has([PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages])) {
+                        const publicEmbed = new EmbedBuilder()
+                            .setColor(COLORS.PRIMARY)
+                            .setTitle('Operator Promoted')
+                            .setDescription(`> Congratulations ${message.author}! You have reached **Clearance Level ${result.newLevel}**!`)
+                            .addFields(
+                                { name: 'Rewards Received', value: `- +${result.tokensAwarded} Calamity Intel (CI) Tokens`, inline: false }
+                            )
+                            .setFooter({ text: timestamp });
+
+                        await channel.send({ embeds: [publicEmbed] });
+                    }
+                } catch (err) {
+                    console.error('Failed to send public level up announcement:', err);
+                }
             }
         }
     }
