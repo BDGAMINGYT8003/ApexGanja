@@ -1,6 +1,7 @@
 const cron = require('node-cron');
 const fs = require('fs');
 const path = require('path');
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const db = require('./database');
 const logger = require('./logger');
 
@@ -248,6 +249,29 @@ async function resetRoutine(client) {
             if (!u.lottery.joined) u.lottery.joined = 0;
             u.lottery.joined++;
             u.lottery.current_tickets = 0; // Reset tickets
+        });
+
+        // --- SAVE HISTORY ---
+        // Save Leaderboard (Top 50 by Total XP)
+        const historyLeaderboard = sorted.slice(0, 50).map(u => ({
+            id: u.id,
+            total_xp: u.total_xp,
+            level: u.level,
+            tokens: u.tokens
+        }));
+
+        // Save Lottery Results
+        const historyLottery = {
+            winners: lotteryWinners, // [{ rank: 1, id: ... }, ...]
+            total_participants: lotteryParticipants.length + lotteryWinners.length,
+            total_tickets: totalTicketsGlobal,
+            prizes: LOTTERY_PRIZES
+        };
+
+        db.addHistory(guildId, {
+            month: new Date().toLocaleString('default', { month: 'long', year: 'numeric' }),
+            leaderboard: historyLeaderboard,
+            lottery: historyLottery
         });
 
         // 3. Reset Data (General - Complete Users)

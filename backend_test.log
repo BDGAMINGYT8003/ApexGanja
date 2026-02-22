@@ -1,0 +1,4 @@
+[INFO] Database loaded (Dual-File System + Settings + History).
+[EVENT] Database saved to disk (Background Task).
+Starting backend server with TEST_USER_ID=123...
+[INFO] Web server running on port 3000

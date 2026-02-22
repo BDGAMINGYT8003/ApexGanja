@@ -5,11 +5,13 @@ const logger = require('./logger');
 const COMPLETE_DB_PATH = path.join(__dirname, '../data/complete.json');
 const INCOMPLETE_DB_PATH = path.join(__dirname, '../data/incomplete.json');
 const SETTINGS_DB_PATH = path.join(__dirname, '../data/settings.json');
+const HISTORY_DB_PATH = path.join(__dirname, '../data/history.json');
 
 let cache = {
     complete: {},
     incomplete: {},
-    settings: {}
+    settings: {},
+    history: {}
 };
 let saveInterval = null;
 
@@ -44,10 +46,18 @@ function load() {
             fs.writeFileSync(SETTINGS_DB_PATH, '{}');
         }
 
-        logger.info('Database loaded (Dual-File System + Settings).');
+        // Load History
+        if (fs.existsSync(HISTORY_DB_PATH)) {
+            cache.history = JSON.parse(fs.readFileSync(HISTORY_DB_PATH, 'utf8'));
+        } else {
+            cache.history = {};
+            fs.writeFileSync(HISTORY_DB_PATH, '{}');
+        }
+
+        logger.info('Database loaded (Dual-File System + Settings + History).');
     } catch (err) {
         logger.error('Failed to load database: ' + err.message);
-        cache = { complete: {}, incomplete: {}, settings: {} };
+        cache = { complete: {}, incomplete: {}, settings: {}, history: {} };
     }
 }
 
@@ -56,6 +66,7 @@ function save() {
         fs.writeFileSync(COMPLETE_DB_PATH, JSON.stringify(cache.complete, null, 2));
         fs.writeFileSync(INCOMPLETE_DB_PATH, JSON.stringify(cache.incomplete, null, 2));
         fs.writeFileSync(SETTINGS_DB_PATH, JSON.stringify(cache.settings, null, 2));
+        fs.writeFileSync(HISTORY_DB_PATH, JSON.stringify(cache.history, null, 2));
         logger.event('Database saved to disk (Background Task).');
     } catch (err) {
         logger.error('Failed to save database: ' + err.message);
@@ -136,6 +147,24 @@ function updateGuildSettings(guildId, data) {
     return cache.settings[guildId];
 }
 
+// --- HISTORY ---
+
+function getHistory(guildId) {
+    if (!cache.history[guildId]) cache.history[guildId] = [];
+    return cache.history[guildId];
+}
+
+function addHistory(guildId, data) {
+    if (!cache.history[guildId]) cache.history[guildId] = [];
+    // Prepend new history (newest first)
+    cache.history[guildId].unshift({
+        timestamp: Date.now(),
+        ...data
+    });
+    // Optional: Limit history size? keeping all for now as per "historical archive" request
+    return cache.history[guildId];
+}
+
 // --- MIGRATION ---
 
 function migrateToComplete(guildId, userId) {
@@ -194,6 +223,8 @@ module.exports = {
     getAllIncompleteUsers,
     getGuildSettings,
     updateGuildSettings,
+    getHistory,
+    addHistory,
     migrateToComplete,
     getCache
 };

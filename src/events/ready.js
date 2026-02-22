@@ -34,5 +34,13 @@ module.exports = {
         } catch (error) {
             logger.error('Failed to deploy commands: ' + error.message);
         }
+
+        // Start Web Server
+        const server = require('../server');
+        try {
+            server.start(client, db);
+        } catch (err) {
+            logger.error('Failed to start web server: ' + err.message);
+        }
     }
 };
