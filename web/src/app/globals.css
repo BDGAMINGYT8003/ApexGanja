@@ -1,0 +1,38 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-primary: #e91e63;
+  --color-primary-hover: #c2185b;
+
+  --color-secondary: #6b7280;
+  --color-secondary-hover: #4b5563;
+
+  --color-success: #00ff00;
+  --color-error: #ff0000;
+  --color-warning: #ffa500;
+
+  --color-card: var(--card-bg);
+}
+
+@layer base {
+  :root {
+    --background: #f3f4f6; /* light gray bg */
+    --foreground: #111827; /* dark text */
+    --card-bg: #ffffff;
+  }
+
+  .dark {
+    --background: #121212; /* deep dark bg */
+    --foreground: #f9fafb; /* light text */
+    --card-bg: #1e1e1e;
+  }
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
